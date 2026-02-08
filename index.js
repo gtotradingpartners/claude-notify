@@ -6,7 +6,7 @@ const { parseTranscript } = require('./lib/transcript');
 const { formatMessage } = require('./lib/formatter');
 const { playSound, getSoundForEvent } = require('./lib/sound');
 const { ensureTopic, sendTelegram, pollTelegramReply } = require('./lib/telegram');
-const { sendSlack, pollSlackReply } = require('./lib/slack');
+const { ensureChannel, sendSlack, pollSlackReply } = require('./lib/slack');
 
 async function readStdin() {
   return new Promise((resolve) => {
@@ -76,12 +76,22 @@ async function runTest() {
     }
   } else if (config.channel === 'slack') {
     console.log(`\nSlack bot token: ${config.slack.bot_token ? 'SET' : 'MISSING'}`);
-    console.log(`Slack channel: ${config.slack.channel || 'MISSING'}`);
+    console.log(`Slack channel: ${config.slack.channel || 'not set'}`);
+    console.log(`Slack auto-create: ${config.slack.auto_create_channel}`);
 
-    if (!config.slack.bot_token || !config.slack.channel) {
-      console.error('\nError: Set Slack env vars');
+    if (!config.slack.bot_token) {
+      console.error('\nError: Set CLAUDE_NOTIFY_SLACK_TOKEN env var');
       process.exit(1);
     }
+
+    if (!config.slack.channel && !config.slack.auto_create_channel) {
+      console.error('\nError: Set Slack channel env var or enable auto_create_channel in config');
+      process.exit(1);
+    }
+
+    // Auto-create channel if needed
+    const channelId = await ensureChannel(config);
+    console.log(`Slack channel ID: ${channelId}`);
 
     console.log('\nSending test notification to Slack...');
     const testInput = {
@@ -190,6 +200,7 @@ async function main() {
       }
     }
   } else if (config.channel === 'slack') {
+    await ensureChannel(config);
     sentMessageRef = await sendSlack(config, message);
 
     // Handle blocking reply

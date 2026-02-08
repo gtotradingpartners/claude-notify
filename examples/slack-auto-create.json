@@ -1,0 +1,31 @@
+{
+  "enabled": true,
+  "channel": "slack",
+  "events": {
+    "Notification": true,
+    "Stop": true,
+    "SubagentStop": false
+  },
+  "notification_types": {
+    "permission_prompt": true,
+    "idle_prompt": true,
+    "elicitation_dialog": true,
+    "auth_success": false
+  },
+  "slack": {
+    "bot_token_env": "CLAUDE_NOTIFY_SLACK_TOKEN",
+    "auto_create_channel": true,
+    "channel_id": null
+  },
+  "sound": "default",
+  "sounds": {
+    "Notification": "Glass",
+    "Stop": "Hero"
+  },
+  "platform_sound": true,
+  "include_history": true,
+  "history_lines": 10,
+  "wait_for_reply": true,
+  "reply_timeout": 120,
+  "project_label": ""
+}

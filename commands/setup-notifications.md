@@ -19,46 +19,79 @@ Use AskUserQuestion to ask:
 - header: "Channel"
 - options:
   - **Telegram** — "Messages sent to a Telegram group topic. Best for personal use. Requires a bot token and group ID."
-  - **Slack** — "Messages sent to a Slack channel. Best for team use. Requires a bot token and channel ID."
+  - **Slack** — "Messages sent to a Slack channel. Best for team use. Requires a bot token."
 
-## Step 3: Verify Credentials
+## Step 3: Channel Setup (Telegram or Slack)
 
-Based on the channel choice:
+### If Telegram:
 
-**For Telegram:**
-- Check if `CLAUDE_NOTIFY_TG_TOKEN` env var is set: `test -n "$CLAUDE_NOTIFY_TG_TOKEN"`
-- Check if `CLAUDE_NOTIFY_TG_GROUP_ID` env var is set: `test -n "$CLAUDE_NOTIFY_TG_GROUP_ID"`
-- If either is missing, tell the user:
-  ```
-  You need to set these environment variables (add to ~/.zshrc or ~/.bashrc):
+Check if `CLAUDE_NOTIFY_TG_TOKEN` env var is set: `test -n "$CLAUDE_NOTIFY_TG_TOKEN"` and `test -n "$CLAUDE_NOTIFY_TG_GROUP_ID"`
 
-  export CLAUDE_NOTIFY_TG_TOKEN="your-bot-token"      # Get from @BotFather on Telegram
-  export CLAUDE_NOTIFY_TG_GROUP_ID="your-group-id"     # Negative number like -1001234567890
+If the bot token is missing, tell the user:
+```
+You need a Telegram bot token. Create one via @BotFather on Telegram.
+Then add to ~/.zshrc:  export CLAUDE_NOTIFY_TG_TOKEN="your-bot-token"
+```
 
-  To get your group ID:
-  1. Add your bot to the group
-  2. Send a message in the group
-  3. Visit: https://api.telegram.org/bot<TOKEN>/getUpdates
-  4. Find the chat.id in the response
-  ```
-  Then ask if they want to continue setup (config will work once env vars are set) or stop.
+Then ask about the group:
 
-**For Slack:**
-- Check if `CLAUDE_NOTIFY_SLACK_TOKEN` env var is set
-- Check if `CLAUDE_NOTIFY_SLACK_CHANNEL` env var is set (or a project-specific one)
-- If missing, tell the user:
-  ```
-  You need to set these environment variables:
+**Question: "How do you want to set up the Telegram group?"**
+- header: "TG Group"
+- options:
+  - **Use existing group (Recommended)** — "Provide the group ID of an existing Telegram group with forum topics enabled. The bot must be an admin in the group."
+  - **I need help creating one** — "Show me step-by-step instructions for creating a Telegram group with forum topics and getting the group ID."
 
-  export CLAUDE_NOTIFY_SLACK_TOKEN="xoxb-your-bot-token"   # From Slack App OAuth
-  export CLAUDE_NOTIFY_SLACK_CHANNEL="C0123456789"          # Channel ID from Slack
+If "Use existing group": check if `CLAUDE_NOTIFY_TG_GROUP_ID` is set. If not, explain how to set it.
 
-  To set up:
-  1. Create a Slack app at https://api.slack.com/apps
-  2. Add OAuth scopes: chat:write, channels:history, channels:read
-  3. Install to workspace and copy the Bot User OAuth Token
-  4. Get the channel ID from the channel's "About" panel
-  ```
+If "I need help creating one": show these instructions:
+```
+1. Open Telegram and create a new Group
+2. Add your bot (@YourBotName) to the group
+3. Go to Group Settings → Edit → Toggle ON "Topics"
+4. Make your bot an admin (needed for creating topics)
+5. Send any message in the group
+6. Visit: https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates
+7. Find "chat":{"id":-100XXXXXXXXXX} — that negative number is your group ID
+8. Add to ~/.zshrc:  export CLAUDE_NOTIFY_TG_GROUP_ID="-100XXXXXXXXXX"
+```
+Then ask if they want to continue setup now (config will work once the env var is set) or pause.
+
+**Note:** A Forum Topic will be auto-created for this project on the first notification. The topic name will match the project label. `topic_id` in the config will be set to `null` (auto-create).
+
+### If Slack:
+
+Check if `CLAUDE_NOTIFY_SLACK_TOKEN` env var is set: `test -n "$CLAUDE_NOTIFY_SLACK_TOKEN"`
+
+If the bot token is missing, tell the user:
+```
+You need a Slack Bot token.
+1. Create a Slack app at https://api.slack.com/apps
+2. Add these Bot Token OAuth scopes:
+   - chat:write (send messages)
+   - channels:history, channels:read (read replies)
+   - channels:manage (only if you want auto-created channels)
+3. Install the app to your workspace
+4. Copy the "Bot User OAuth Token" (starts with xoxb-)
+5. Add to ~/.zshrc:  export CLAUDE_NOTIFY_SLACK_TOKEN="xoxb-..."
+```
+
+Then ask about the channel:
+
+**Question: "How should the Slack channel be set up for this project?"**
+- header: "Slack channel"
+- options:
+  - **Use existing channel** — "Provide a channel ID you've already created. Set CLAUDE_NOTIFY_SLACK_CHANNEL env var."
+  - **Auto-create channel (Recommended)** — "Automatically create a #claude-<project-name> channel. Requires channels:manage scope."
+
+If "Use existing channel": check if a Slack channel env var is set. If not, explain:
+```
+Set the channel ID in your env:
+  export CLAUDE_NOTIFY_SLACK_CHANNEL="C0123456789"
+
+Find the channel ID: open the channel in Slack → click the channel name → scroll to the bottom of the "About" panel.
+```
+
+If "Auto-create channel": set `auto_create_channel: true` in the config. The channel will be created as `#claude-<project-label>` on the first notification. No channel env var needed.
 
 ## Step 4: Configure Notification Events
 
@@ -133,7 +166,11 @@ Based on all answers, generate the `notification-config.json` file. Map the answ
 - Sound → `sound` + `sounds` (use the chosen sound for Notification, Hero for Stop)
 - Label → `project_label` (empty string for auto-detect)
 
-For Telegram, set `topic_id: null` to auto-create a forum topic on first notification.
+**For Telegram:** set `topic_id: null` to auto-create a forum topic on first notification.
+
+**For Slack with auto-create:** set `auto_create_channel: true` and `channel_id: null`. The channel `#claude-<project-label>` will be created on first notification and the `channel_id` will be saved back to the config.
+
+**For Slack with existing channel:** set `auto_create_channel: false` and leave `channel_id: null` (resolved from env var at runtime).
 
 Write the config to `$CWD/.claude/notification-config.json`. Create the `.claude/` directory if it doesn't exist.
 
@@ -143,6 +180,7 @@ Tell the user:
 1. Config saved to `.claude/notification-config.json`
 2. Add `.claude/notification-config.json` to `.gitignore` (it may contain project-specific settings)
 3. Suggest running `/test-notifications` to verify the setup
-4. Remind them that the topic will be auto-created in their Telegram group on the first notification
+4. For Telegram: remind that a topic will be auto-created in their group on the first notification
+5. For Slack with auto-create: remind that a `#claude-<project>` channel will be created on first notification
 
 Show a summary of what was configured.
