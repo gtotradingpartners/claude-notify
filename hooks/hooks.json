@@ -1,0 +1,38 @@
+{
+  "description": "Claude Code notification hooks — sends alerts to Telegram/Slack on Notification, Stop, and SubagentStop events",
+  "hooks": {
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/index.js\"",
+            "timeout": 300
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/index.js\"",
+            "timeout": 300
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/index.js\"",
+            "timeout": 300
+          }
+        ]
+      }
+    ]
+  }
+}
