@@ -7,12 +7,8 @@ const SOUNDS_DIR = '/System/Library/Sounds';
 function playSound(soundName) {
   if (!soundName || soundName === 'silent') return;
 
-  let soundFile;
-  if (soundName === 'default') {
-    soundFile = path.join(SOUNDS_DIR, 'Glass.aiff');
-  } else {
-    soundFile = path.join(SOUNDS_DIR, `${soundName}.aiff`);
-  }
+  const fileName = soundName === 'default' ? 'Glass' : soundName;
+  const soundFile = path.join(SOUNDS_DIR, `${fileName}.aiff`);
 
   if (!fs.existsSync(soundFile)) {
     process.stderr.write(`claude-notify: sound file not found: ${soundFile}\n`);

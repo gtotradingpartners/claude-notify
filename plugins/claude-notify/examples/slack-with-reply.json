@@ -14,7 +14,9 @@
   },
   "slack": {
     "bot_token_env": "CLAUDE_NOTIFY_SLACK_TOKEN",
-    "channel_env": "CLAUDE_NOTIFY_SLACK_CHANNEL"
+    "channel_env": "CLAUDE_NOTIFY_SLACK_CHANNEL",
+    "auto_create_channel": false,
+    "channel_id": null
   },
   "sound": "default",
   "sounds": {

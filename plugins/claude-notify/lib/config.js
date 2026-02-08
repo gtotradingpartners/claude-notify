@@ -44,7 +44,7 @@ function loadConfig(projectDir) {
   const configPath = getConfigPath(projectDir);
 
   if (!fs.existsSync(configPath)) {
-    return { ...DEFAULT_CONFIG, enabled: false, _configPath: configPath, _projectDir: projectDir };
+    return { ...DEFAULT_CONFIG, _configPath: configPath, _projectDir: projectDir };
   }
 
   let raw;
@@ -52,7 +52,7 @@ function loadConfig(projectDir) {
     raw = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
   } catch (e) {
     process.stderr.write(`claude-notify: failed to parse ${configPath}: ${e.message}\n`);
-    return { ...DEFAULT_CONFIG, enabled: false, _configPath: configPath, _projectDir: projectDir };
+    return { ...DEFAULT_CONFIG, _configPath: configPath, _projectDir: projectDir };
   }
 
   const config = {
@@ -100,34 +100,26 @@ function detectProjectLabel(projectDir) {
   return path.basename(projectDir);
 }
 
-function saveTopicId(config, topicId) {
-  const configPath = config._configPath;
+function updateConfigField(configPath, section, key, value) {
   let raw = {};
   try {
     raw = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
   } catch (_) {
-    // ignore
+    // ignore — start from empty object
   }
 
-  if (!raw.telegram) raw.telegram = {};
-  raw.telegram.topic_id = topicId;
+  if (!raw[section]) raw[section] = {};
+  raw[section][key] = value;
 
   fs.writeFileSync(configPath, JSON.stringify(raw, null, 2) + '\n', 'utf-8');
+}
+
+function saveTopicId(config, topicId) {
+  updateConfigField(config._configPath, 'telegram', 'topic_id', topicId);
 }
 
 function saveSlackChannelId(config, channelId) {
-  const configPath = config._configPath;
-  let raw = {};
-  try {
-    raw = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-  } catch (_) {
-    // ignore
-  }
-
-  if (!raw.slack) raw.slack = {};
-  raw.slack.channel_id = channelId;
-
-  fs.writeFileSync(configPath, JSON.stringify(raw, null, 2) + '\n', 'utf-8');
+  updateConfigField(config._configPath, 'slack', 'channel_id', channelId);
 }
 
-module.exports = { loadConfig, saveTopicId, saveSlackChannelId, DEFAULT_CONFIG };
+module.exports = { loadConfig, saveTopicId, saveSlackChannelId };

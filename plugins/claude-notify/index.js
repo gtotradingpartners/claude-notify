@@ -13,10 +13,13 @@ async function readStdin() {
     let data = '';
     process.stdin.setEncoding('utf-8');
     process.stdin.on('data', chunk => { data += chunk; });
-    process.stdin.on('end', () => resolve(data));
+    process.stdin.on('end', () => {
+      clearTimeout(timer);
+      resolve(data);
+    });
 
-    // If no data arrives within 5s, resolve with empty string
-    setTimeout(() => resolve(data), 5000);
+    // If stdin never closes within 5s, resolve with empty string
+    const timer = setTimeout(() => resolve(''), 5000);
   });
 }
 
@@ -123,6 +126,22 @@ async function runTest() {
   console.log('\n=== test complete ===');
 }
 
+async function sendNotification(config, message) {
+  if (config.channel === 'telegram') {
+    const topicId = await ensureTopic(config);
+    await sendTelegram(config, message, topicId);
+    return (timeout) => pollTelegramReply(config, topicId, timeout);
+  }
+
+  if (config.channel === 'slack') {
+    await ensureChannel(config);
+    const msgRef = await sendSlack(config, message);
+    return (timeout) => pollSlackReply(config, msgRef, timeout);
+  }
+
+  return null;
+}
+
 async function main() {
   // Handle --test flag
   if (process.argv.includes('--test')) {
@@ -185,30 +204,14 @@ async function main() {
   const soundName = getSoundForEvent(config, eventName);
   playSound(soundName);
 
-  // Send to configured channel
-  let sentMessageRef = null;
+  // Send to configured channel and get a poll function for replies
+  const pollReply = await sendNotification(config, message);
 
-  if (config.channel === 'telegram') {
-    const topicId = await ensureTopic(config);
-    await sendTelegram(config, message, topicId);
-
-    // Handle blocking reply
-    if (config.wait_for_reply && !stopHookActive) {
-      const reply = await pollTelegramReply(config, topicId, config.reply_timeout);
-      if (reply) {
-        outputReply(eventName, config.channel, reply);
-      }
-    }
-  } else if (config.channel === 'slack') {
-    await ensureChannel(config);
-    sentMessageRef = await sendSlack(config, message);
-
-    // Handle blocking reply
-    if (config.wait_for_reply && !stopHookActive) {
-      const reply = await pollSlackReply(config, sentMessageRef, config.reply_timeout);
-      if (reply) {
-        outputReply(eventName, config.channel, reply);
-      }
+  // Handle blocking reply
+  if (pollReply && config.wait_for_reply && !stopHookActive) {
+    const reply = await pollReply(config.reply_timeout);
+    if (reply) {
+      outputReply(eventName, config.channel, reply);
     }
   }
 
@@ -216,28 +219,21 @@ async function main() {
 }
 
 function outputReply(eventName, channel, replyText) {
+  const replyMessage = `Human replied via ${channel}: ${replyText}`;
   let output;
 
   if (eventName === 'Stop' || eventName === 'SubagentStop') {
     // Block Claude from stopping, provide human's reply as reason to continue
     output = {
       decision: 'block',
-      reason: `Human replied via ${channel}: ${replyText}`,
-    };
-  } else if (eventName === 'Notification') {
-    // Return reply as additional context
-    output = {
-      hookSpecificOutput: {
-        hookEventName: 'Notification',
-        additionalContext: `Human replied via ${channel}: ${replyText}`,
-      },
+      reason: replyMessage,
     };
   } else {
-    // Generic context injection
+    // Return reply as additional context (Notification and all other events)
     output = {
       hookSpecificOutput: {
         hookEventName: eventName,
-        additionalContext: `Human replied via ${channel}: ${replyText}`,
+        additionalContext: replyMessage,
       },
     };
   }
