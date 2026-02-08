@@ -1,0 +1,23 @@
+{
+  "enabled": true,
+  "channel": "telegram",
+  "events": {
+    "Notification": true,
+    "Stop": true,
+    "SubagentStop": false
+  },
+  "telegram": {
+    "bot_token_env": "CLAUDE_NOTIFY_TG_TOKEN",
+    "group_id_env": "CLAUDE_NOTIFY_TG_GROUP_ID",
+    "topic_id": null
+  },
+  "sound": "default",
+  "sounds": {
+    "Notification": "Ping",
+    "Stop": "Hero"
+  },
+  "platform_sound": false,
+  "include_history": false,
+  "wait_for_reply": false,
+  "project_label": ""
+}

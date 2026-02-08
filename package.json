@@ -1,0 +1,8 @@
+{
+  "name": "claude-notify",
+  "version": "1.0.0",
+  "description": "Claude Code CLI notification hooks for Telegram and Slack with bidirectional reply support",
+  "main": "index.js",
+  "type": "commonjs",
+  "license": "MIT"
+}
