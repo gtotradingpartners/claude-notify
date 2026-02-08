@@ -278,8 +278,9 @@ Use AskUserQuestion to ask:
 **Question: "Should notifications include recent conversation context?"**
 - header: "History"
 - options:
-  - **Yes, 10 messages (Recommended)** — "Include the last 10 human/assistant exchanges so you can see what Claude was doing"
-  - **Yes, 5 messages** — "Shorter context, keeps messages smaller"
+  - **Yes, 5 messages (Recommended)** — "Include the last 5 human/assistant exchanges for context"
+  - **Yes, 2 messages** — "Just the most recent back-and-forth, keeps notifications short"
+  - **Yes, 10 messages** — "More context, but notifications will be longer"
   - **No context** — "Just the notification alert, no conversation history"
 
 History includes only text messages (human and assistant). Thinking blocks, tool calls, and other internal details are excluded. Individual messages are truncated to 500 characters.
