@@ -25,48 +25,34 @@ Use AskUserQuestion to ask:
 
 ### If Telegram:
 
-Check if `CLAUDE_NOTIFY_TG_TOKEN` env var is set: `test -n "$CLAUDE_NOTIFY_TG_TOKEN"` and check if `CLAUDE_NOTIFY_TG_GROUP_ID` is set: `test -n "$CLAUDE_NOTIFY_TG_GROUP_ID"`
+Check if both env vars are set by running:
+- `source ~/.zshrc 2>/dev/null; test -n "$CLAUDE_NOTIFY_TG_TOKEN" && echo "SET" || echo "MISSING"`
+- `source ~/.zshrc 2>/dev/null; test -n "$CLAUDE_NOTIFY_TG_GROUP_ID" && echo "SET" || echo "MISSING"`
 
-If the bot token is missing, tell the user:
+If EITHER is missing, tell the user:
 ```
-You need a Telegram bot token:
-1. Open Telegram and message @BotFather
-2. Send /newbot and follow the prompts
-3. Copy the token (format: 123456789:ABCDefGh...)
-4. Add to your shell profile:
-   echo 'export CLAUDE_NOTIFY_TG_TOKEN="your-bot-token"' >> ~/.zshrc
-5. Reload: source ~/.zshrc
+Telegram requires two environment variables:
+  CLAUDE_NOTIFY_TG_TOKEN    — your bot token from @BotFather
+  CLAUDE_NOTIFY_TG_GROUP_ID — your group's numeric ID
+
+Run /claude-notify:find-group-id to set these up interactively.
+It will walk you through creating a bot (if needed), creating a group (if needed),
+and finding the group ID automatically.
 ```
 
-Then ask about the group:
+Then use AskUserQuestion to ask:
 
-**Question: "How do you want to set up the Telegram group?"**
-- header: "TG Group"
+**Question: "Your Telegram credentials are not fully configured. What would you like to do?"**
+- header: "TG Setup"
 - options:
-  - **Use existing group (Recommended)** — "Provide the group ID of an existing Telegram group with forum topics enabled. The bot must be an admin in the group."
-  - **I need help creating one** — "Show me step-by-step instructions for creating a Telegram group with forum topics and getting the group ID."
+  - **Run find-group-id first** — "I'll run /claude-notify:find-group-id to set up my bot and group, then come back"
+  - **Continue anyway** — "I'll set the env vars manually later. Continue with the rest of the setup."
 
-If "Use existing group": check if `CLAUDE_NOTIFY_TG_GROUP_ID` is set. If not, explain:
-```
-Set your group ID (the negative number starting with -100):
-  echo 'export CLAUDE_NOTIFY_TG_GROUP_ID="-100XXXXXXXXXX"' >> ~/.zshrc
-  source ~/.zshrc
-```
+If "Run find-group-id first": tell the user to run `/claude-notify:find-group-id` and then come back to `/claude-notify:setup-notifications` afterwards. Stop here.
 
-If "I need help creating one": show these instructions:
-```
-1. Open Telegram and create a new Group (add at least one other member or your bot)
-2. Add your bot (@YourBotName) to the group if not already added
-3. Go to Group Settings → Edit → Toggle ON "Topics" (enables forum mode)
-4. Make your bot an admin (needed for creating topics and sending messages)
-5. Send any message in the group
-6. Visit in your browser: https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates
-7. Find "chat":{"id":-100XXXXXXXXXX} in the response — that negative number is your group ID
-8. Add to your shell profile:
-   echo 'export CLAUDE_NOTIFY_TG_GROUP_ID="-100XXXXXXXXXX"' >> ~/.zshrc
-   source ~/.zshrc
-```
-Then ask if they want to continue setup now (config will work once the env var is set) or pause.
+If "Continue anyway": proceed to Step 4. The config will work once the env vars are set.
+
+If BOTH are already set, tell the user their Telegram credentials look good and proceed to Step 4.
 
 **Topic auto-creation:** A Forum Topic will be auto-created in your group for this project on the first notification. The topic name will match the project label. The `topic_id` is saved back to the config automatically so subsequent notifications go to the same topic.
 
