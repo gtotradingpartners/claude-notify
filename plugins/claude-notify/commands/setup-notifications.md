@@ -78,13 +78,47 @@ Check if group ID is set: `source ~/.zshrc 2>/dev/null; test -n "$CLAUDE_NOTIFY_
 
 **If the group ID is SET:** tell the user their group ID is configured and skip to Step 3c.
 
-**If the group ID is MISSING:** use AskUserQuestion to ask:
+**If the group ID is MISSING:**
 
-**Question: "Do you have a Telegram group for notifications?"**
+First, try to detect it automatically. If the bot is already in a group, we can find the group ID right away without the user doing anything extra.
+
+Tell the user:
+```
+Let me check if your bot is already in a group...
+If your bot is already a member of a Telegram group, I can detect the group ID directly.
+```
+
+Run: `source ~/.zshrc 2>/dev/null; curl -s "https://api.telegram.org/bot${CLAUDE_NOTIFY_TG_TOKEN}/getUpdates?offset=-10"`
+
+Parse the JSON response. Look for entries where `result[].message.chat.type` is `"group"` or `"supergroup"`. Extract unique groups by `chat.id`.
+
+**If groups ARE found:** skip straight to the "If groups are found" section below to let the user pick and save.
+
+**If NO groups are found:** the bot hasn't seen any group messages recently. Ask the user:
+
+**Question: "Your bot isn't in a group yet, or hasn't received any messages. Do you have a Telegram group?"**
 - header: "Group"
 - options:
-  - **Yes, I have a group** — "I have a group with my bot added to it"
-  - **No, I need to create one** — "Show me how to create a group"
+  - **Yes, I have a group with the bot in it** — "The bot is already in my group — I just need to send a message so it can detect it"
+  - **Yes, but the bot isn't in it yet** — "I have a group but need to add the bot"
+  - **No, I need to create one** — "Show me how to create a group from scratch"
+
+If "Yes, I have a group with the bot in it": tell the user:
+```
+Send any message in the group (just type "hello" or anything).
+This gives your bot something to see so I can detect the group ID.
+```
+
+If "Yes, but the bot isn't in it yet": tell the user:
+```
+Add your bot to the group:
+  1. Open your group in Telegram
+  2. Tap the group name → "Add Members"
+  3. Search for your bot's @username and add it
+  4. Make the bot an admin (group settings → Administrators → Add Admin → select bot)
+  5. Also make sure "Topics" is enabled (group settings → Edit → toggle on "Topics")
+  6. Then send any message in the group
+```
 
 If "No, I need to create one": tell the user:
 ```
@@ -103,25 +137,10 @@ How to create a Telegram group for notifications:
    - In group settings, tap "Administrators"
    - Tap "Add Admin" and select your bot
    - Confirm
+7. Send any message in the group
 ```
 
-If "Yes, I have a group": remind them:
-```
-Make sure:
-  - Your bot is a member of the group
-  - Your bot is an admin (needed to create topic threads)
-  - "Topics" is enabled in group settings (Group → Edit → Topics)
-```
-
-**Now find the group ID automatically:**
-
-Tell the user:
-```
-Now send any message in your Telegram group (just type "hello" or anything).
-This lets your bot detect the group.
-```
-
-Use AskUserQuestion to ask:
+For all three cases above, after the user has sent a message, use AskUserQuestion:
 
 **Question: "Have you sent a message in the group?"**
 - header: "Message sent"
