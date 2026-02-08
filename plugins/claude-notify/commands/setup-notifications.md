@@ -291,13 +291,14 @@ Use AskUserQuestion to ask:
 **Question: "Enable reply-back? This lets you reply from Telegram/Slack and Claude receives your response."**
 - header: "Reply-back"
 - options:
-  - **Yes, 2 minute timeout (Recommended)** — "Claude waits up to 2 minutes for your reply before proceeding"
-  - **Yes, 5 minute timeout** — "Longer wait time for when you might be away"
+  - **Yes, 30 minute timeout (Recommended)** — "Claude waits up to 30 minutes for your reply. Good for stepping away briefly."
+  - **Yes, 2 hour timeout** — "Claude waits up to 2 hours. Good if you might be away for a while."
+  - **Yes, 5 minute timeout** — "Short wait, for when you're actively monitoring from your phone."
   - **No reply-back** — "One-way notifications only. You must return to the terminal to respond."
 
 Explain how reply-back works:
-- **Permission/idle notifications**: Your reply is passed to Claude as additional context
-- **Stop events**: Your reply prevents Claude from stopping — Claude continues with your reply as new instructions
+- **Permission/idle notifications**: Claude is already waiting for your input. The timeout just controls how long it waits for a Telegram/Slack reply before giving up. Since Claude was blocked anyway, a longer timeout costs nothing.
+- **Stop events**: Your reply prevents Claude from stopping — Claude continues with your reply as new instructions. The terminal is frozen during the wait.
 - **Timeout**: If you don't reply in time, Claude proceeds normally (no follow-up message is sent)
 - **Telegram**: Reply to the notification message in the topic thread
 - **Slack**: Reply in the message thread (not the channel)

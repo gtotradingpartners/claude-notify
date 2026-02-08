@@ -7,7 +7,7 @@
           {
             "type": "command",
             "command": "source ~/.zshrc 2>/dev/null; source ~/.bashrc 2>/dev/null; node \"${CLAUDE_PLUGIN_ROOT}/index.js\"",
-            "timeout": 300
+            "timeout": 7200
           }
         ]
       }
@@ -18,7 +18,7 @@
           {
             "type": "command",
             "command": "source ~/.zshrc 2>/dev/null; source ~/.bashrc 2>/dev/null; node \"${CLAUDE_PLUGIN_ROOT}/index.js\"",
-            "timeout": 300
+            "timeout": 7200
           }
         ]
       }
@@ -29,7 +29,7 @@
           {
             "type": "command",
             "command": "source ~/.zshrc 2>/dev/null; source ~/.bashrc 2>/dev/null; node \"${CLAUDE_PLUGIN_ROOT}/index.js\"",
-            "timeout": 300
+            "timeout": 7200
           }
         ]
       }
