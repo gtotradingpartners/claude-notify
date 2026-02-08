@@ -92,7 +92,7 @@ export CLAUDE_NOTIFY_TG_GROUP_ID="-100XXXXXXXXXX"
 - Create a group with **Topics** (forum mode) enabled
 - Add your bot to the group and make it an **admin**
 - A forum topic is auto-created per project on first notification
-- **To find your group ID:** Run `/claude-notify:find-group-id` — it walks you through the entire process interactively
+- **Group ID discovery:** `/claude-notify:setup-notifications` finds it automatically via your bot's API
 
 ### Slack
 
@@ -186,10 +186,9 @@ When `wait_for_reply` is enabled:
 
 | Command | Description |
 |---------|-------------|
-| `/claude-notify:setup-notifications` | Interactive setup wizard for the current project |
+| `/claude-notify:setup-notifications` | Interactive setup wizard (includes Telegram bot/group setup) |
 | `/claude-notify:test-notifications` | Send a test notification and verify reply-back |
 | `/claude-notify:disable-notifications` | Disable notifications for the current project |
-| `/claude-notify:find-group-id` | Find your Telegram group ID interactively (bot token + group discovery) |
 
 ## Project Structure
 

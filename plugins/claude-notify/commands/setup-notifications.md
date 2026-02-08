@@ -25,36 +25,158 @@ Use AskUserQuestion to ask:
 
 ### If Telegram:
 
-Check if both env vars are set by running:
-- `source ~/.zshrc 2>/dev/null; test -n "$CLAUDE_NOTIFY_TG_TOKEN" && echo "SET" || echo "MISSING"`
-- `source ~/.zshrc 2>/dev/null; test -n "$CLAUDE_NOTIFY_TG_GROUP_ID" && echo "SET" || echo "MISSING"`
+Telegram requires two things: a **bot token** and a **group ID**. This section will check for each and walk the user through setting them up if missing.
 
-If EITHER is missing, tell the user:
-```
-Telegram requires two environment variables:
-  CLAUDE_NOTIFY_TG_TOKEN    — your bot token from @BotFather
-  CLAUDE_NOTIFY_TG_GROUP_ID — your group's numeric ID
+#### Step 3a: Bot Token
 
-Run /claude-notify:find-group-id to set these up interactively.
-It will walk you through creating a bot (if needed), creating a group (if needed),
-and finding the group ID automatically.
-```
+Check if bot token is set: `source ~/.zshrc 2>/dev/null; test -n "$CLAUDE_NOTIFY_TG_TOKEN" && echo "SET" || echo "MISSING"`
 
-Then use AskUserQuestion to ask:
+**If the token is SET:** tell the user their bot token is configured and skip to Step 3b.
 
-**Question: "Your Telegram credentials are not fully configured. What would you like to do?"**
-- header: "TG Setup"
+**If the token is MISSING:** use AskUserQuestion to ask:
+
+**Question: "Do you already have a Telegram bot?"**
+- header: "Bot"
 - options:
-  - **Run find-group-id first** — "I'll run /claude-notify:find-group-id to set up my bot and group, then come back"
-  - **Continue anyway** — "I'll set the env vars manually later. Continue with the rest of the setup."
+  - **Yes, I have a bot token** — "I created a bot via @BotFather and have the token ready"
+  - **No, I need to create one** — "Show me how to create a Telegram bot"
 
-If "Run find-group-id first": tell the user to run `/claude-notify:find-group-id` and then come back to `/claude-notify:setup-notifications` afterwards. Stop here.
+If "No, I need to create one": tell the user:
+```
+How to create a Telegram bot:
 
-If "Continue anyway": proceed to Step 4. The config will work once the env vars are set.
+1. Open Telegram on your phone or desktop
+2. Search for @BotFather and start a chat with it
+3. Send the message: /newbot
+4. BotFather asks for a display name — type anything (e.g. "Claude Alerts")
+5. BotFather asks for a username — must end in "bot" (e.g. "my_claude_alerts_bot")
+6. BotFather replies with your bot token — it looks like:
+     123456789:ABCDefGhIJKlmNoPQRsTUVwxyz
+7. Copy that entire token string
+```
 
-If BOTH are already set, tell the user their Telegram credentials look good and proceed to Step 4.
+For both cases (already has token, or just created one), use AskUserQuestion with freeform input:
 
-**Topic auto-creation:** A Forum Topic will be auto-created in your group for this project on the first notification. The topic name will match the project label. The `topic_id` is saved back to the config automatically so subsequent notifications go to the same topic.
+**Question: "Paste your bot token (format: 123456789:ABCDefGh...):"**
+- header: "Token"
+- options:
+  - **I've already set it in ~/.zshrc** — "I already added export CLAUDE_NOTIFY_TG_TOKEN=... to my shell profile"
+
+If they pick "I've already set it in ~/.zshrc": run `source ~/.zshrc` and re-check. If still missing, tell them to verify the export line exists in ~/.zshrc.
+
+If they type/paste a token: save it by running:
+```
+echo 'export CLAUDE_NOTIFY_TG_TOKEN="<THEIR_TOKEN>"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+Confirm the token is now set.
+
+#### Step 3b: Group and Group ID
+
+Check if group ID is set: `source ~/.zshrc 2>/dev/null; test -n "$CLAUDE_NOTIFY_TG_GROUP_ID" && echo "SET" || echo "MISSING"`
+
+**If the group ID is SET:** tell the user their group ID is configured and skip to Step 3c.
+
+**If the group ID is MISSING:** use AskUserQuestion to ask:
+
+**Question: "Do you have a Telegram group for notifications?"**
+- header: "Group"
+- options:
+  - **Yes, I have a group** — "I have a group with my bot added to it"
+  - **No, I need to create one** — "Show me how to create a group"
+
+If "No, I need to create one": tell the user:
+```
+How to create a Telegram group for notifications:
+
+1. Open Telegram
+2. Tap the compose/new message button → "New Group"
+3. Add your bot (search for its @username) as a member
+4. Give the group a name (e.g. "Claude Notifications")
+5. After the group is created, open group settings:
+   - Tap the group name at the top
+   - Tap "Edit" (pencil icon)
+   - Scroll down and toggle ON "Topics"
+     (This enables forum mode — each project gets its own topic thread)
+6. Make your bot an admin:
+   - In group settings, tap "Administrators"
+   - Tap "Add Admin" and select your bot
+   - Confirm
+```
+
+If "Yes, I have a group": remind them:
+```
+Make sure:
+  - Your bot is a member of the group
+  - Your bot is an admin (needed to create topic threads)
+  - "Topics" is enabled in group settings (Group → Edit → Topics)
+```
+
+**Now find the group ID automatically:**
+
+Tell the user:
+```
+Now send any message in your Telegram group (just type "hello" or anything).
+This lets your bot detect the group.
+```
+
+Use AskUserQuestion to ask:
+
+**Question: "Have you sent a message in the group?"**
+- header: "Message sent"
+- options:
+  - **Yes, I sent a message** — "I just sent a message in the group"
+
+Once confirmed, query the bot API to find the group. Run:
+```
+source ~/.zshrc 2>/dev/null; curl -s "https://api.telegram.org/bot${CLAUDE_NOTIFY_TG_TOKEN}/getUpdates?offset=-10"
+```
+
+Parse the JSON response. Look for entries where `result[].message.chat.type` is `"group"` or `"supergroup"`. For each unique group found, extract:
+- `message.chat.id` — the numeric group ID (negative number starting with -100)
+- `message.chat.title` — the group name
+
+**If groups are found:** show them like:
+```
+Found these groups your bot is in:
+
+  Group: "Claude Notifications"
+  ID: -1001234567890
+```
+
+If multiple groups found, use AskUserQuestion to let the user pick the right one. If only one, confirm it.
+
+Then save the group ID by running:
+```
+echo 'export CLAUDE_NOTIFY_TG_GROUP_ID="<GROUP_ID>"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+**If NO groups are found:** tell the user:
+```
+No groups found in your bot's recent updates. This usually means:
+  - The message hasn't reached the bot yet — wait a few seconds and try again
+  - Your bot isn't in the group — add it as a member first
+  - Too much time passed — Telegram only keeps recent updates, so send a fresh message
+
+Would you like to try again?
+```
+Use AskUserQuestion to offer retry or manual entry. For manual entry, ask them to paste the group ID directly (they may know it from another source).
+
+#### Step 3c: Confirm Telegram Setup
+
+Tell the user:
+```
+Telegram is configured:
+  ✓ Bot token set
+  ✓ Group ID set
+
+A forum topic will be auto-created in your group for this project on the
+first notification. The topic name will match the project label.
+```
+
+Proceed to Step 4.
 
 ### If Slack:
 
