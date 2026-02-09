@@ -24,8 +24,8 @@ Bidirectional notification hooks for [Claude Code](https://docs.anthropic.com/en
                                       v
                     +----------------------------------+
                     |  Load project config              |
-                    |  $PROJECT/.claude/                |
-                    |    notification-config.json       |
+                    |  ~/.claude/claude-notify/configs/  |
+                    |    <encoded-path>/config.json     |
                     +----------------------------------+
                                       |
                          enabled? ----+---- no --> exit 0
@@ -153,12 +153,12 @@ Claude Code has two levels of settings: **user-level** (global) and **project-le
 
 **Plugin installation** (`--scope user`) registers the hooks globally — the plugin's Stop, Notification, and SubagentStop hooks fire for every project you open in Claude Code. You do not need to add `claude-notify` to each project's `enabledPlugins`.
 
-**Notification behavior** is controlled per-project by `$PROJECT/.claude/notification-config.json`. When a hook fires:
-- If the project has no `notification-config.json` → the hook exits silently (no notification)
-- If `notification-config.json` exists with `"enabled": false` → exits silently
+**Notification behavior** is controlled per-project by a config file stored under `~/.claude/claude-notify/configs/`. When a hook fires:
+- If no config exists for this project → the hook exits silently (no notification)
+- If a config exists with `"enabled": false` → exits silently
 - If `"enabled": true` → notifications are sent according to that project's config
 
-This means the plugin is installed once but each project decides independently whether and how to get notifications.
+The plugin never reads or writes to your project directories — all config files live under `~/.claude/`. This means the plugin is installed once and each project decides independently whether and how to get notifications, without triggering macOS privacy prompts.
 
 **Project-level settings** (`$PROJECT/.claude/settings.json`) may also list other plugins. If another plugin registers a Stop hook (e.g. `ralph-loop`), you'll see a "2 stop hooks" message. Uninstall or disable conflicting plugins:
 
@@ -184,7 +184,7 @@ This walks you through:
 3. Selecting which events trigger notifications
 4. History context, reply-back, sounds, and project label
 
-The setup creates `.claude/notification-config.json` in the project. Each project can use different channels (Telegram vs Slack), different topics/channels, different sounds, and different reply-back settings.
+The setup creates a config file under `~/.claude/claude-notify/configs/` (not inside the project directory). Each project can use different channels (Telegram vs Slack), different topics/channels, different sounds, and different reply-back settings.
 
 ### Verify It Works
 
@@ -295,7 +295,19 @@ Each project independently chooses `"channel": "telegram"` or `"channel": "slack
 
 ## Configuration
 
-Each project has its own `.claude/notification-config.json`. Here's a full example:
+Each project has its own config file stored under `~/.claude/claude-notify/configs/`. The path is derived from the project directory:
+
+```
+~/.claude/claude-notify/configs/<ENCODED_PATH>/notification-config.json
+```
+
+Where `<ENCODED_PATH>` is the absolute project path with `/` replaced by `-`. For example:
+- Project at `/Users/aaron/CursorProjects/HypeForm`
+- Config at `~/.claude/claude-notify/configs/-Users-aaron-CursorProjects-HypeForm/notification-config.json`
+
+This keeps all config files inside `~/.claude/` — the plugin never reads or writes to your project directories. This prevents macOS privacy warnings (TCC prompts) when projects are in Desktop, Documents, Google Drive, iCloud, or other protected folders.
+
+Here's a full config example:
 
 ```json
 {
@@ -351,7 +363,7 @@ Each project has its own `.claude/notification-config.json`. Here's a full examp
 **Set during setup:**
 - `telegram.topic_id` — parsed from topic URL during `/setup-notifications`
 
-**Auto-populated fields** (don't set these manually):
+**Auto-populated fields** (managed automatically):
 - `slack.channel_id` — set after first notification auto-creates the Slack channel
 
 ## How Reply-Back Works

@@ -5,7 +5,14 @@ allowed-tools: ["AskUserQuestion", "Write", "Read", "Bash", "Glob"]
 
 # Setup Notifications for This Project
 
-You are configuring the **claude-notify** plugin for the current project. This will create a `.claude/notification-config.json` file that controls how and when notifications are sent.
+You are configuring the **claude-notify** plugin for the current project.
+
+**IMPORTANT — Config storage location:**
+All notification configs are stored under `~/.claude/claude-notify/configs/`, NOT inside the project directory. This prevents macOS privacy warnings (TCC prompts) when projects are in Desktop, Documents, Google Drive, iCloud, etc.
+
+The config path for a project is: `~/.claude/claude-notify/configs/<ENCODED_PATH>/notification-config.json`
+where `<ENCODED_PATH>` is the absolute project path with all `/` replaced by `-`.
+Example: project at `/Users/aaron/CursorProjects/HypeForm` → config at `~/.claude/claude-notify/configs/-Users-aaron-CursorProjects-HypeForm/notification-config.json`
 
 ## Step 0: Determine the project directory
 
@@ -21,11 +28,13 @@ If "Current directory": use the current working directory as the project path.
 
 If "Choose a subdirectory": list directories in the current working directory that look like projects (have a `.git/` or `src/` or `package.json`). Use AskUserQuestion to let the user pick one.
 
-Store the chosen path as `PROJECT_DIR` — all references to `.claude/notification-config.json` below mean `<PROJECT_DIR>/.claude/notification-config.json`. Use absolute paths throughout.
+Store the chosen path as `PROJECT_DIR` (absolute path). Compute the config path: `~/.claude/claude-notify/configs/<ENCODED_PATH>/notification-config.json` where `<ENCODED_PATH>` = absolute `PROJECT_DIR` with `/` replaced by `-`.
 
 ## Step 1: Check for Existing Config
 
-Check if `<PROJECT_DIR>/.claude/notification-config.json` already exists. If it does, read it and tell the user their current settings, then ask if they want to reconfigure or keep them.
+Check if the config file already exists at the computed path. Also check the legacy location (`<PROJECT_DIR>/.claude/notification-config.json`) — if found there but not in the new location, offer to migrate it.
+
+If a config exists, read it and tell the user their current settings, then ask if they want to reconfigure or keep them.
 
 ## Step 2: Choose Notification Channel
 
@@ -544,13 +553,13 @@ If the user chose a project-specific bot token in the Slack setup, add the direc
 ```
 Only include `bot_token_value` if they chose a project-specific bot. It overrides the env var when present.
 
-Write the config to `<PROJECT_DIR>/.claude/notification-config.json` (the project directory chosen in Step 0). Use the absolute path. Create the `.claude/` directory if it doesn't exist.
+Write the config to `~/.claude/claude-notify/configs/<ENCODED_PATH>/notification-config.json` (where `<ENCODED_PATH>` is the absolute `PROJECT_DIR` with `/` replaced by `-`). Create the directories if they don't exist using `mkdir -p`.
 
 ## Step 11: Confirm and Test
 
 Tell the user:
-1. Config saved to `.claude/notification-config.json`
-2. Check that `.claude/notification-config.json` is in your `.gitignore` (it may contain project-specific topic/channel IDs)
+1. Config saved to `~/.claude/claude-notify/configs/<ENCODED_PATH>/notification-config.json`
+2. No files were written inside your project directory — all config is stored under `~/.claude/`
 3. **Important**: If you just added env vars, restart your terminal or run `source ~/.zshrc` before testing
 4. Run `/test-notifications` to verify everything works
 5. For Slack with auto-create: a `#claude-<project>` channel will be created on first notification (or test)

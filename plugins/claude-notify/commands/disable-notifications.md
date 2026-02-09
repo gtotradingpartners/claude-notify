@@ -1,20 +1,25 @@
 ---
 description: "Disable notifications for the current project"
-allowed-tools: ["Read", "Edit", "AskUserQuestion", "Glob"]
+allowed-tools: ["Read", "Edit", "AskUserQuestion", "Glob", "Bash"]
 ---
 
 # Disable Notifications
 
 Toggle notifications off for a project.
 
+**Config location:** `~/.claude/claude-notify/configs/<ENCODED_PATH>/notification-config.json`
+where `<ENCODED_PATH>` = absolute project path with `/` replaced by `-`.
+
 ## Step 0: Find the project
 
-Look for `notification-config.json`:
+Determine the project directory (use the current working directory).
 
-1. Check the current working directory: `.claude/notification-config.json`
-2. If not found, search subdirectories: `*/.claude/notification-config.json`
-3. If multiple found, use AskUserQuestion to ask which project to disable
-4. If none found, tell the user notifications are not configured for any project here and stop
+Compute the config path: `~/.claude/claude-notify/configs/<ENCODED_PATH>/notification-config.json`
+where `<ENCODED_PATH>` = absolute project path with `/` replaced by `-`.
+
+Check if the config file exists at that path. If not found, also check the legacy location (`<PROJECT_DIR>/.claude/notification-config.json`).
+
+If no config is found at either location, tell the user notifications are not configured for this project and stop.
 
 ## Step 1: Disable
 

@@ -2,31 +2,11 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-// macOS directories that trigger TCC privacy prompts when accessed
-const HOME = os.homedir();
-const PROTECTED_DIRS = [
-  path.join(HOME, 'Desktop'),
-  path.join(HOME, 'Documents'),
-  path.join(HOME, 'Downloads'),
-  path.join(HOME, 'Library'),
-  path.join(HOME, 'Library', 'CloudStorage'),  // Google Drive, iCloud, OneDrive, Dropbox
-];
-
-function isProtectedPath(dir) {
-  const resolved = path.resolve(dir);
-  // Check if dir IS or is INSIDE a protected macOS directory
-  // (but allow ~/.claude/ which is inside home but not protected)
-  for (const protectedDir of PROTECTED_DIRS) {
-    if (resolved === protectedDir || resolved.startsWith(protectedDir + '/')) {
-      return true;
-    }
-  }
-  // Also catch cloud storage mounted elsewhere
-  if (resolved.includes('/CloudStorage/') || resolved.includes('/Google Drive/')) {
-    return true;
-  }
-  return false;
-}
+// All configs stored under ~/.claude/claude-notify/ — never touches project directories.
+// This avoids macOS TCC privacy prompts when projects are in Desktop, Documents, Google Drive, etc.
+const CLAUDE_DIR = path.join(os.homedir(), '.claude');
+const NOTIFY_DIR = path.join(CLAUDE_DIR, 'claude-notify');
+const CONFIGS_DIR = path.join(NOTIFY_DIR, 'configs');
 
 const DEFAULT_CONFIG = {
   enabled: false,
@@ -64,17 +44,19 @@ const DEFAULT_CONFIG = {
   project_label: '',
 };
 
+// Encode project path to a directory name: /Users/aaron/foo → -Users-aaron-foo
+// Same pattern Claude Code uses for ~/.claude/projects/
+function encodeProjectPath(projectDir) {
+  return path.resolve(projectDir).replace(/\//g, '-');
+}
+
 function getConfigPath(projectDir) {
-  return path.join(projectDir, '.claude', 'notification-config.json');
+  const encoded = encodeProjectPath(projectDir);
+  return path.join(CONFIGS_DIR, encoded, 'notification-config.json');
 }
 
 function loadConfig(projectDir) {
   const configPath = getConfigPath(projectDir);
-
-  // Skip filesystem access for macOS-protected directories to avoid TCC privacy prompts
-  if (isProtectedPath(projectDir)) {
-    return { ...DEFAULT_CONFIG, _configPath: configPath, _projectDir: projectDir };
-  }
 
   if (!fs.existsSync(configPath)) {
     return { ...DEFAULT_CONFIG, _configPath: configPath, _projectDir: projectDir };
@@ -112,33 +94,21 @@ function loadConfig(projectDir) {
   // channel can come from env var OR from auto-created channel_id in config
   config.slack.channel = config.slack.channel_id || process.env[config.slack.channel_env] || '';
 
-  // Auto-detect project label from git or dirname
+  // Project label: use configured value or fall back to directory basename
   if (!config.project_label) {
-    config.project_label = detectProjectLabel(projectDir);
+    config.project_label = path.basename(projectDir);
   }
 
   return config;
 }
 
-function detectProjectLabel(projectDir) {
-  // Try git repo name first (skip for protected dirs to avoid TCC prompts)
-  if (!isProtectedPath(projectDir)) {
-    try {
-      const gitConfigPath = path.join(projectDir, '.git', 'config');
-      if (fs.existsSync(gitConfigPath)) {
-        const gitConfig = fs.readFileSync(gitConfigPath, 'utf-8');
-        const urlMatch = gitConfig.match(/url\s*=\s*.*\/([^/\s]+?)(?:\.git)?\s*$/m);
-        if (urlMatch) return urlMatch[1];
-      }
-    } catch (_) {
-      // ignore
-    }
-  }
-  // Fall back to directory name
-  return path.basename(projectDir);
-}
-
 function updateConfigField(configPath, section, key, value) {
+  // Ensure the config directory exists
+  const configDir = path.dirname(configPath);
+  if (!fs.existsSync(configDir)) {
+    fs.mkdirSync(configDir, { recursive: true });
+  }
+
   let raw = {};
   try {
     raw = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
@@ -156,4 +126,4 @@ function saveSlackChannelId(config, channelId) {
   updateConfigField(config._configPath, 'slack', 'channel_id', channelId);
 }
 
-module.exports = { loadConfig, saveSlackChannelId };
+module.exports = { loadConfig, saveSlackChannelId, getConfigPath, CONFIGS_DIR };

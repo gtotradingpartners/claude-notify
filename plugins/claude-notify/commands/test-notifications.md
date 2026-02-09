@@ -9,20 +9,22 @@ Run the claude-notify test script to verify the notification setup for the curre
 
 **IMPORTANT: You MUST use the node test script as described below. Do NOT improvise your own curl commands, polling loops, or any other approach. The node script handles everything — sending, sound, and reply polling.**
 
+**Config location:** `~/.claude/claude-notify/configs/<ENCODED_PATH>/notification-config.json`
+where `<ENCODED_PATH>` = absolute project path with `/` replaced by `-`.
+
 ## Step 0: Find the project
 
-Look for `notification-config.json` to determine which project to test:
+Use the current working directory as the project. Compute the config path:
+`~/.claude/claude-notify/configs/<ENCODED_PATH>/notification-config.json`
+where `<ENCODED_PATH>` = absolute project path with `/` replaced by `-`.
 
-1. Check the current working directory: `.claude/notification-config.json`
-2. If not found, search subdirectories: `*/.claude/notification-config.json`
-3. If multiple found, use AskUserQuestion to ask which project to test
-4. If none found, tell the user to run `/setup-notifications` first and stop here
+Check if the config file exists. Also check the legacy location (`<PROJECT_DIR>/.claude/notification-config.json`). If neither exists, tell the user to run `/setup-notifications` first and stop here.
 
 Store the project directory as `PROJECT_DIR` (absolute path).
 
 ## Step 1: Show config summary
 
-Read `<PROJECT_DIR>/.claude/notification-config.json` and show the user a brief summary: channel, events enabled, reply-back status, history lines.
+Read the config file and show the user a brief summary: channel, events enabled, reply-back status, history lines.
 
 ## Step 2: Run the test
 
