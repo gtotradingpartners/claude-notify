@@ -243,10 +243,9 @@ async function main() {
   }
 
   // Determine if we'll actually poll for a reply
-  // Only poll for Notification events (Claude is already waiting for input)
-  // Stop/SubagentStop: send notification and exit immediately so terminal stays responsive
-  const isNotificationEvent = eventName === 'Notification';
-  const willPollReply = config.wait_for_reply && isNotificationEvent && !stopHookActive;
+  // Poll for all event types unless stop_hook_active (loop prevention)
+  // Transcript monitoring will abort polling if user types in terminal instead
+  const willPollReply = config.wait_for_reply && !stopHookActive;
 
   // Format message
   const message = formatMessage(input, config, historyContext, willPollReply);
