@@ -58,25 +58,36 @@ function formatTelegramHTML(hookInput, config, historyContext, willPollReply) {
   const project = config.project_label;
   const sessionId = hookInput.session_id || 'unknown';
 
-  let msg = `${emoji} <b>${escapeHTML(title)}</b>\n`;
-  msg += `<b>Project:</b> ${escapeHTML(project)}\n`;
-  msg += `<b>Session:</b> <code>${escapeHTML(sessionId)}</code>\n\n`;
-  msg += `${escapeHTML(body)}\n`;
+  // Build header (always included)
+  let header = `${emoji} <b>${escapeHTML(title)}</b>\n`;
+  header += `<b>Project:</b> ${escapeHTML(project)}\n`;
+  header += `<b>Session:</b> <code>${escapeHTML(sessionId)}</code>\n\n`;
+  header += `${escapeHTML(body)}\n`;
 
-  if (historyContext) {
-    msg += `\n<b>Recent context:</b>\n<pre>${escapeHTML(historyContext)}</pre>\n`;
-  }
-
+  // Build footer (always included)
+  let footer = '';
   if (willPollReply) {
-    msg += `\n<i>Reply to this message or respond directly in Claude Code.</i>`;
+    footer = `\n<i>Reply to this message or respond directly in Claude Code.</i>`;
   }
 
-  // Truncate to Telegram limit
-  if (msg.length > TELEGRAM_MAX_LENGTH) {
-    msg = msg.substring(0, TELEGRAM_MAX_LENGTH - 20) + '\n...[truncated]';
+  // Fit history context into remaining space
+  let contextBlock = '';
+  if (historyContext) {
+    const available = TELEGRAM_MAX_LENGTH - header.length - footer.length - 60; // 60 for markup overhead
+    let trimmedContext = escapeHTML(historyContext);
+    if (trimmedContext.length > available) {
+      trimmedContext = trimmedContext.substring(trimmedContext.length - available) ;
+      // Start from a clean line break
+      const newlineIdx = trimmedContext.indexOf('\n');
+      if (newlineIdx > 0 && newlineIdx < 100) {
+        trimmedContext = trimmedContext.substring(newlineIdx + 1);
+      }
+      trimmedContext = '...\n' + trimmedContext;
+    }
+    contextBlock = `\n<b>Recent context:</b>\n<pre>${trimmedContext}</pre>\n`;
   }
 
-  return msg;
+  return header + contextBlock + footer;
 }
 
 function formatSlackMrkdwn(hookInput, config, historyContext, willPollReply) {
@@ -84,20 +95,33 @@ function formatSlackMrkdwn(hookInput, config, historyContext, willPollReply) {
   const project = config.project_label;
   const sessionId = hookInput.session_id || 'unknown';
 
-  let msg = `${emoji} *${title}*\n`;
-  msg += `*Project:* ${project}\n`;
-  msg += `*Session:* \`${sessionId}\`\n\n`;
-  msg += `${body}\n`;
+  let header = `${emoji} *${title}*\n`;
+  header += `*Project:* ${project}\n`;
+  header += `*Session:* \`${sessionId}\`\n\n`;
+  header += `${body}\n`;
 
-  if (historyContext) {
-    msg += `\n*Recent context:*\n\`\`\`${historyContext}\`\`\`\n`;
-  }
-
+  let footer = '';
   if (willPollReply) {
-    msg += `\n_Reply in thread or respond directly in Claude Code._`;
+    footer = `\n_Reply in thread or respond directly in Claude Code._`;
   }
 
-  return msg;
+  let contextBlock = '';
+  if (historyContext) {
+    // Slack limit is ~4000 chars for best rendering
+    const available = 3500 - header.length - footer.length;
+    let trimmedContext = historyContext;
+    if (trimmedContext.length > available) {
+      trimmedContext = trimmedContext.substring(trimmedContext.length - available);
+      const newlineIdx = trimmedContext.indexOf('\n');
+      if (newlineIdx > 0 && newlineIdx < 100) {
+        trimmedContext = trimmedContext.substring(newlineIdx + 1);
+      }
+      trimmedContext = '...\n' + trimmedContext;
+    }
+    contextBlock = `\n*Recent context:*\n\`\`\`${trimmedContext}\`\`\`\n`;
+  }
+
+  return header + contextBlock + footer;
 }
 
 function escapeHTML(text) {
