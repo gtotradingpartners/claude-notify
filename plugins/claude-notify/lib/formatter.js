@@ -68,7 +68,7 @@ function formatTelegramHTML(hookInput, config, historyContext, willPollReply) {
   }
 
   if (willPollReply) {
-    msg += `\n<i>Reply to this message to send instructions to Claude.</i>`;
+    msg += `\n<i>Reply to this message or respond directly in Claude Code.</i>`;
   }
 
   // Truncate to Telegram limit
@@ -94,7 +94,7 @@ function formatSlackMrkdwn(hookInput, config, historyContext, willPollReply) {
   }
 
   if (willPollReply) {
-    msg += `\n_Reply in thread to send instructions to Claude._`;
+    msg += `\n_Reply in thread or respond directly in Claude Code._`;
   }
 
   return msg;

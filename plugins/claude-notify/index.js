@@ -243,7 +243,10 @@ async function main() {
   }
 
   // Determine if we'll actually poll for a reply
-  const willPollReply = config.wait_for_reply && !stopHookActive;
+  // Only poll for Notification events (Claude is already waiting for input)
+  // Stop/SubagentStop: send notification and exit immediately so terminal stays responsive
+  const isNotificationEvent = eventName === 'Notification';
+  const willPollReply = config.wait_for_reply && isNotificationEvent && !stopHookActive;
 
   // Format message
   const message = formatMessage(input, config, historyContext, willPollReply);
@@ -257,8 +260,8 @@ async function main() {
   const pollReply = await sendNotification(config, message);
   log('sent successfully');
 
-  // Handle blocking reply
-  if (pollReply && config.wait_for_reply && !stopHookActive) {
+  // Handle blocking reply (Notification events only)
+  if (pollReply && willPollReply) {
     log(`polling for reply (timeout=${config.reply_timeout}s)`);
     const reply = await pollReply(config.reply_timeout);
     if (reply) {
