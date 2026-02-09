@@ -158,13 +158,13 @@ async function sendNotification(config, message) {
   if (config.channel === 'telegram') {
     const topicId = getTopicId(config);
     await sendTelegram(config, message, topicId);
-    return (timeout) => pollTelegramReply(config, topicId, timeout);
+    return (timeout, shouldAbort) => pollTelegramReply(config, topicId, timeout, shouldAbort);
   }
 
   if (config.channel === 'slack') {
     await ensureChannel(config);
     const msgRef = await sendSlack(config, message);
-    return (timeout) => pollSlackReply(config, msgRef, timeout);
+    return (timeout, shouldAbort) => pollSlackReply(config, msgRef, timeout, shouldAbort);
   }
 
   return null;
@@ -262,13 +262,33 @@ async function main() {
 
   // Handle blocking reply (Notification events only)
   if (pollReply && willPollReply) {
-    log(`polling for reply (timeout=${config.reply_timeout}s)`);
-    const reply = await pollReply(config.reply_timeout);
+    // Monitor transcript file — if it changes, user responded in the terminal
+    const transcriptPath = input.transcript_path || '';
+    let transcriptMtime = 0;
+    if (transcriptPath) {
+      try {
+        transcriptMtime = fs.statSync(transcriptPath).mtimeMs;
+      } catch (_) {}
+    }
+    const shouldAbort = () => {
+      if (!transcriptPath || !transcriptMtime) return false;
+      try {
+        const currentMtime = fs.statSync(transcriptPath).mtimeMs;
+        if (currentMtime > transcriptMtime) {
+          log('transcript changed — user responded in terminal, aborting poll');
+          return true;
+        }
+      } catch (_) {}
+      return false;
+    };
+
+    log(`polling for reply (timeout=${config.reply_timeout}s, watching transcript for terminal input)`);
+    const reply = await pollReply(config.reply_timeout, shouldAbort);
     if (reply) {
       log(`reply received: ${reply.substring(0, 100)}`);
       outputReply(eventName, config.channel, reply);
     } else {
-      log('no reply (timeout)');
+      log('no reply (timeout or user responded in terminal)');
     }
   }
 

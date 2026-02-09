@@ -38,7 +38,7 @@ async function sendTelegram(config, message, topicId) {
   return result.result.message_id;
 }
 
-async function pollTelegramReply(config, topicId, timeoutSeconds) {
+async function pollTelegramReply(config, topicId, timeoutSeconds, shouldAbort) {
   const token = config.telegram.bot_token;
   const groupId = config.telegram.group_id;
   const deadline = Date.now() + (timeoutSeconds * 1000);
@@ -54,8 +54,13 @@ async function pollTelegramReply(config, topicId, timeoutSeconds) {
   }
 
   while (Date.now() < deadline) {
+    // Check if user responded in the terminal
+    if (shouldAbort && shouldAbort()) {
+      return null;
+    }
+
     const remainingSeconds = Math.min(
-      30, // Telegram long-poll max
+      5, // Short polls so we can check terminal between polls
       Math.floor((deadline - Date.now()) / 1000)
     );
 

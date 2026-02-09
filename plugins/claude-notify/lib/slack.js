@@ -88,7 +88,7 @@ async function sendSlack(config, message) {
   return { channel: result.channel, ts: result.ts };
 }
 
-async function pollSlackReply(config, messageRef, timeoutSeconds) {
+async function pollSlackReply(config, messageRef, timeoutSeconds, shouldAbort) {
   if (!messageRef) return null;
 
   const token = config.slack.bot_token;
@@ -96,6 +96,11 @@ async function pollSlackReply(config, messageRef, timeoutSeconds) {
   const pollInterval = 5000;
 
   while (Date.now() < deadline) {
+    // Check if user responded in the terminal
+    if (shouldAbort && shouldAbort()) {
+      return null;
+    }
+
     const result = await slackApiGet('conversations.replies', token, {
       channel: messageRef.channel,
       ts: messageRef.ts,
