@@ -408,7 +408,23 @@ Explain how reply-back works:
 - **Telegram**: Reply to the notification message in the topic thread
 - **Slack**: Reply in the message thread (not the channel)
 
-## Step 7: Configure Sounds
+## Step 7: Configure Send Delay
+
+Use AskUserQuestion to ask:
+
+**Question: "How long should claude-notify wait before sending a notification?"**
+- header: "Delay"
+- options:
+  - **10 seconds (Recommended)** — "Wait 10 seconds before sending. Reduces noise if you're already at the terminal."
+  - **30 seconds** — "Wait 30 seconds. Good if you're often near the terminal and only want alerts when you're truly away."
+  - **No delay** — "Send immediately when Claude needs input or finishes. You'll get every notification instantly."
+  - **5 seconds** — "Short delay, just enough to avoid rapid-fire alerts."
+
+Map: "10 seconds" → `send_delay: 10`, "30 seconds" → `send_delay: 30`, "No delay" → `send_delay: 0`, "5 seconds" → `send_delay: 5`
+
+Note: The delay happens before the notification is sent to Telegram/Slack. The local macOS sound also waits for the delay. If you respond at the terminal during the delay, the notification still sends (the hook can't detect that you already responded).
+
+## Step 8: Configure Sounds
 
 Use AskUserQuestion to ask:
 
@@ -432,7 +448,7 @@ Map: "No" → `platform_sound: false`, "Yes" → `platform_sound: true`
 
 The chosen sound is used for all Notification events. Stop events always use "Hero" sound. The `sounds` field in config allows per-event overrides.
 
-## Step 8: Project Label
+## Step 9: Project Label
 
 Use AskUserQuestion to ask:
 
@@ -449,7 +465,7 @@ Auto-detect tries the git remote URL repo name first, then falls back to the dir
 The project label is also used for:
 - Slack: the auto-created channel name (#claude-<label>)
 
-## Step 9: Generate Config
+## Step 10: Generate Config
 
 Based on all answers, generate the `notification-config.json` file.
 
@@ -465,9 +481,10 @@ Based on all answers, generate the `notification-config.json` file.
 - `notification_types.auth_success: false` (always off)
 - `include_history` + `history_lines` → from Step 5
 - `wait_for_reply` + `reply_timeout` → from Step 6
-- `sound` → chosen sound name from Step 7
+- `send_delay` → from Step 7
+- `sound` → chosen sound name from Step 8
 - `sounds` → `{ "Notification": "<chosen>", "Stop": "Hero" }`
-- `platform_sound` → from Step 7
+- `platform_sound` → from Step 8
 - `project_label` → empty string `""` for auto-detect, or the custom label
 
 **For Telegram config (using global env vars):**
@@ -529,7 +546,7 @@ Only include `bot_token_value` if they chose a project-specific bot. It override
 
 Write the config to `<PROJECT_DIR>/.claude/notification-config.json` (the project directory chosen in Step 0). Use the absolute path. Create the `.claude/` directory if it doesn't exist.
 
-## Step 10: Confirm and Test
+## Step 11: Confirm and Test
 
 Tell the user:
 1. Config saved to `.claude/notification-config.json`

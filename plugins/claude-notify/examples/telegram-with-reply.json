@@ -17,6 +17,7 @@
     "group_id_env": "CLAUDE_NOTIFY_TG_GROUP_ID",
     "topic_id": 42
   },
+  "send_delay": 10,
   "sound": "default",
   "sounds": {
     "Notification": "Glass",

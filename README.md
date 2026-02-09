@@ -137,6 +137,7 @@ Each project has its own `.claude/notification-config.json`. Here's a full examp
     "group_id_env": "CLAUDE_NOTIFY_TG_GROUP_ID",
     "topic_id": 42
   },
+  "send_delay": 10,
   "sound": "Glass",
   "sounds": {
     "Notification": "Glass",
@@ -157,6 +158,7 @@ Each project has its own `.claude/notification-config.json`. Here's a full examp
 | `channel` | `"telegram"` | `"telegram"` or `"slack"` |
 | `events` | Stop+Notification on | Which hook events trigger notifications |
 | `notification_types` | all on except auth_success | Filter which Notification subtypes fire |
+| `send_delay` | `10` | Seconds to wait before sending notification (0 = immediate) |
 | `sound` | `"default"` | macOS sound name (Glass, Hero, Ping, Basso, Pop, Submarine) |
 | `sounds` | `{}` | Per-event sound overrides |
 | `platform_sound` | `true` | If `false`, Telegram/Slack messages arrive silently |

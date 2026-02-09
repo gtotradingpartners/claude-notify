@@ -191,6 +191,12 @@ async function main() {
   // Infinite loop guard for Stop events
   const stopHookActive = input.stop_hook_active === true;
 
+  // Delay before sending (gives you time to respond at the terminal first)
+  const delay = config.send_delay || 0;
+  if (delay > 0) {
+    await new Promise(resolve => setTimeout(resolve, delay * 1000));
+  }
+
   // Parse transcript history if enabled
   let historyContext = '';
   if (config.include_history && input.transcript_path) {

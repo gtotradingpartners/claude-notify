@@ -26,6 +26,7 @@ const DEFAULT_CONFIG = {
     channel_id: null,
     auto_create_channel: false,
   },
+  send_delay: 10,
   sound: 'default',
   sounds: {},
   platform_sound: true,
