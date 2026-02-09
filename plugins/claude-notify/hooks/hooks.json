@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "export PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\"; source ~/.zshrc 2>/dev/null; source ~/.bashrc 2>/dev/null; node \"${CLAUDE_PLUGIN_ROOT}/index.js\"",
+            "command": "export PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\"; node \"${CLAUDE_PLUGIN_ROOT}/index.js\"",
             "timeout": 7200
           }
         ]
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "export PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\"; source ~/.zshrc 2>/dev/null; source ~/.bashrc 2>/dev/null; node \"${CLAUDE_PLUGIN_ROOT}/index.js\"",
+            "command": "export PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\"; node \"${CLAUDE_PLUGIN_ROOT}/index.js\"",
             "timeout": 7200
           }
         ]
@@ -28,7 +28,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "export PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\"; source ~/.zshrc 2>/dev/null; source ~/.bashrc 2>/dev/null; node \"${CLAUDE_PLUGIN_ROOT}/index.js\"",
+            "command": "export PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\"; node \"${CLAUDE_PLUGIN_ROOT}/index.js\"",
             "timeout": 7200
           }
         ]
