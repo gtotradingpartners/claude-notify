@@ -243,9 +243,13 @@ async function main() {
   }
 
   // Determine if we'll actually poll for a reply
-  // Poll for all event types unless stop_hook_active (loop prevention)
-  // Transcript monitoring will abort polling if user types in terminal instead
-  const willPollReply = config.wait_for_reply && !stopHookActive;
+  // Only poll for Stop/SubagentStop events (reply blocks the stop, Claude continues)
+  // and idle_prompt (Claude is waiting for free-form input)
+  // Permission prompts and elicitation dialogs require terminal UI interaction —
+  // Telegram replies are ignored by Claude Code for those event types
+  const replyableEvent = eventName === 'Stop' || eventName === 'SubagentStop'
+    || (eventName === 'Notification' && notifType === 'idle_prompt');
+  const willPollReply = config.wait_for_reply && replyableEvent && !stopHookActive;
 
   // Format message
   const message = formatMessage(input, config, historyContext, willPollReply);

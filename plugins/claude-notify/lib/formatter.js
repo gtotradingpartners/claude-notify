@@ -68,6 +68,8 @@ function formatTelegramHTML(hookInput, config, historyContext, willPollReply) {
   let footer = '';
   if (willPollReply) {
     footer = `\n<i>Reply to this message or respond directly in Claude Code.</i>`;
+  } else if (hookInput.hook_event_name === 'Notification') {
+    footer = `\n<i>Respond directly in Claude Code.</i>`;
   }
 
   // If no context, single message
@@ -131,6 +133,8 @@ function formatSlackMrkdwn(hookInput, config, historyContext, willPollReply) {
   let footer = '';
   if (willPollReply) {
     footer = `\n_Reply in thread or respond directly in Claude Code._`;
+  } else if (hookInput.hook_event_name === 'Notification') {
+    footer = `\n_Respond directly in Claude Code._`;
   }
 
   if (!historyContext) {
