@@ -7,9 +7,25 @@ allowed-tools: ["AskUserQuestion", "Write", "Read", "Bash", "Glob"]
 
 You are configuring the **claude-notify** plugin for the current project. This will create a `.claude/notification-config.json` file that controls how and when notifications are sent.
 
+## Step 0: Determine the project directory
+
+Before anything else, figure out which project to configure. Use AskUserQuestion:
+
+**Question: "Which project do you want to set up notifications for?"**
+- header: "Project"
+- options:
+  - **Current directory** — "Use the current working directory as the project"
+  - **Choose a subdirectory** — "Pick from projects in the current directory"
+
+If "Current directory": use the current working directory as the project path.
+
+If "Choose a subdirectory": list directories in the current working directory that look like projects (have a `.git/` or `src/` or `package.json`). Use AskUserQuestion to let the user pick one.
+
+Store the chosen path as `PROJECT_DIR` — all references to `.claude/notification-config.json` below mean `<PROJECT_DIR>/.claude/notification-config.json`. Use absolute paths throughout.
+
 ## Step 1: Check for Existing Config
 
-First check if `.claude/notification-config.json` already exists in the current project directory. If it does, read it and tell the user their current settings, then ask if they want to reconfigure or keep them.
+Check if `<PROJECT_DIR>/.claude/notification-config.json` already exists. If it does, read it and tell the user their current settings, then ask if they want to reconfigure or keep them.
 
 ## Step 2: Choose Notification Channel
 
@@ -25,13 +41,27 @@ Use AskUserQuestion to ask:
 
 ### If Telegram:
 
-Telegram requires two things: a **bot token** and a **group ID**. This section will check for each and walk the user through setting them up if missing.
+Telegram requires three things: a **bot token**, a **group ID**, and a **topic ID**.
+
+The bot token and group ID are **shared across all your projects** (one bot, one group). They're stored as env vars in ~/.zshrc so every project can use them. The topic ID is **per-project** — each project gets its own topic thread in the group.
+
+If this is your first time setting up, you'll configure all three. If you've already set up another project, the bot token and group ID will already be there and you'll only need a new topic.
 
 #### Step 3a: Bot Token
 
 Check if bot token is set: `source ~/.zshrc 2>/dev/null; test -n "$CLAUDE_NOTIFY_TG_TOKEN" && echo "SET" || echo "MISSING"`
 
-**If the token is SET:** tell the user their bot token is configured and skip to Step 3b.
+**If the token is SET:** use AskUserQuestion to ask:
+
+**Question: "A global bot token is already configured. Use it for this project?"**
+- header: "Bot token"
+- options:
+  - **Use global token (Recommended)** — "Use the bot token from CLAUDE_NOTIFY_TG_TOKEN (shared across projects)"
+  - **Use a different bot for this project** — "Set a project-specific bot token stored in this project's config"
+
+If "Use global token": skip to Step 3b.
+
+If "Use a different bot for this project": ask them to paste the token (same flow as MISSING below). Instead of saving to ~/.zshrc, store it as `telegram.bot_token_value` in the project config (Step 9). Tell the user this token is only for this project.
 
 **If the token is MISSING:** use AskUserQuestion to ask:
 
@@ -70,140 +100,200 @@ echo 'export CLAUDE_NOTIFY_TG_TOKEN="<THEIR_TOKEN>"' >> ~/.zshrc
 source ~/.zshrc
 ```
 
-Confirm the token is now set.
+Confirm the token is now set. Tell the user: "This bot token is saved globally — it will be shared across all your projects."
 
-#### Step 3b: Group and Group ID
+#### Step 3b: Group and Topic
 
-Check if group ID is set: `source ~/.zshrc 2>/dev/null; test -n "$CLAUDE_NOTIFY_TG_GROUP_ID" && echo "SET" || echo "MISSING"`
+Telegram uses a group with **Topics** (forum mode) enabled. Each project gets its own topic thread. We need both a **group ID** and a **topic ID** — both come from a single topic URL.
 
-**If the group ID is SET:** tell the user their group ID is configured and skip to Step 3c.
+Check if group ID is already set: `source ~/.zshrc 2>/dev/null; test -n "$CLAUDE_NOTIFY_TG_GROUP_ID" && echo "SET" || echo "MISSING"`
 
-**If the group ID is MISSING:**
+**If the group ID is SET:** use AskUserQuestion to ask:
 
-First, try to detect it automatically. If the bot is already in a group, we can find the group ID right away without the user doing anything extra.
-
-Tell the user:
-```
-Let me check if your bot is already in a group...
-If your bot is already a member of a Telegram group, I can detect the group ID directly.
-```
-
-Run: `source ~/.zshrc 2>/dev/null; curl -s "https://api.telegram.org/bot${CLAUDE_NOTIFY_TG_TOKEN}/getUpdates?offset=-10"`
-
-Parse the JSON response. Look for entries where `result[].message.chat.type` is `"group"` or `"supergroup"`. Extract unique groups by `chat.id`.
-
-**If groups ARE found:** skip straight to the "If groups are found" section below to let the user pick and save.
-
-**If NO groups are found:** the bot hasn't seen any group messages recently. Ask the user:
-
-**Question: "Your bot isn't in a group yet, or hasn't received any messages. Do you have a Telegram group?"**
+**Question: "A global group ID is already configured. Use the same group for this project?"**
 - header: "Group"
 - options:
-  - **Yes, I have a group with the bot in it** — "The bot is already in my group — I just need to send a message so it can detect it"
-  - **Yes, but the bot isn't in it yet** — "I have a group but need to add the bot"
+  - **Use same group (Recommended)** — "Send this project's notifications to the same Telegram group as your other projects"
+  - **Use a different group for this project** — "Set a project-specific group (from a different topic URL)"
+
+If "Use same group": ask about the topic:
+
+**Question: "Do you already have a topic for this project in your Telegram group?"**
+- header: "Topic"
+- options:
+  - **Yes, I have a topic** — "I already created a topic for this project"
+  - **No, I need to create one** — "Show me how to create a topic in my group"
+
+If "No, I need to create one": show the topic creation instructions below, then continue to Step 3c.
+If "Yes": skip straight to Step 3c (get topic URL).
+
+If "Use a different group": continue to the full group+topic setup below (same as MISSING flow). When saving in Step 3c, store the group ID as `telegram.group_id_value` in the project config instead of ~/.zshrc.
+
+**If the group ID is MISSING:** this is the first-time setup. Use AskUserQuestion to ask:
+
+**Question: "Do you already have a Telegram group with Topics enabled?"**
+- header: "Group"
+- options:
+  - **Yes, I have a group** — "I already have a Telegram group with Topics (forum mode) enabled"
   - **No, I need to create one** — "Show me how to create a group from scratch"
-
-If "Yes, I have a group with the bot in it": tell the user:
-```
-Send any message in the group (just type "hello" or anything).
-This gives your bot something to see so I can detect the group ID.
-```
-
-If "Yes, but the bot isn't in it yet": tell the user:
-```
-Add your bot to the group:
-  1. Open your group in Telegram
-  2. Tap the group name → "Add Members"
-  3. Search for your bot's @username and add it
-  4. Make the bot an admin (group settings → Administrators → Add Admin → select bot)
-  5. Also make sure "Topics" is enabled (group settings → Edit → toggle on "Topics")
-  6. Then send any message in the group
-```
 
 If "No, I need to create one": tell the user:
 ```
 How to create a Telegram group for notifications:
 
-1. Open Telegram
+1. Open Telegram on your phone or desktop
 2. Tap the compose/new message button → "New Group"
-3. Add your bot (search for its @username) as a member
+3. Add at least one member (you can add your bot now, or add it later)
 4. Give the group a name (e.g. "Claude Notifications")
-5. After the group is created, open group settings:
+5. After the group is created, enable Topics:
    - Tap the group name at the top
    - Tap "Edit" (pencil icon)
-   - Scroll down and toggle ON "Topics"
-     (This enables forum mode — each project gets its own topic thread)
-6. Make your bot an admin:
-   - In group settings, tap "Administrators"
-   - Tap "Add Admin" and select your bot
-   - Confirm
-7. Send any message in the group
+   - Toggle ON "Topics" (this enables forum mode — each project gets its own topic thread)
+6. Add your bot to the group (if you haven't already):
+   - Tap the group name → "Add Members"
+   - Search for your bot by its @username and add it
+7. Make your bot an admin:
+   - In group settings → "Administrators" → "Add Admin" → select your bot → Confirm
 ```
 
-For all three cases above, after the user has sent a message, use AskUserQuestion:
+For both cases (already has a group, or just created one), tell them to create a topic:
 
-**Question: "Have you sent a message in the group?"**
-- header: "Message sent"
+```
+Now create a topic for this project:
+
+1. Open your Telegram group
+2. Tap the "+" or "Create Topic" button
+3. Name it after your project (e.g. "HypeForm" or "my-project")
+4. The topic is now created — you'll see it as a thread in the group
+```
+
+If group is new, also tell them:
+```
+Make sure your bot is in the group as an admin:
+  - If not added yet: group settings → "Add Members" → search for @YourBotName
+  - Then: group settings → "Administrators" → "Add Admin" → select your bot → Confirm
+```
+
+#### Step 3c: Get Topic URL (extracts both Group ID and Topic ID)
+
+Now ask the user to get the topic URL. Tell them:
+
+```
+I need the topic URL to extract your group ID and topic ID. Here's how to get it:
+
+On phone (iOS/Android):
+  1. Open your group and go into the topic you created
+  2. Tap the topic name at the top of the screen
+  3. Look for "Share" or "Copy Link" — or long-press the topic name
+  4. Copy the link
+
+On Telegram Desktop:
+  1. Open your group and find the topic in the list
+  2. Right-click the topic name → "Copy Topic Link"
+
+On web.telegram.org:
+  1. Open the group and click the topic
+  2. Copy the URL from the browser address bar
+
+The link will look like: https://t.me/c/1234567890/42
+```
+
+Use AskUserQuestion with freeform input:
+
+**Question: "Paste the topic URL (format: https://t.me/c/NUMBERS/NUMBER):"**
+- header: "Topic URL"
 - options:
-  - **Yes, I sent a message** — "I just sent a message in the group"
+  - **I can't find the link** — "I'm having trouble getting the topic URL"
 
-Once confirmed, query the bot API to find the group. Run:
+If "I can't find the link": offer manual entry as fallback — ask them to enter group_id and topic_id separately (they may know these from other sources).
+
+If they paste a URL: parse it to extract the IDs. The format is `https://t.me/c/<GROUP_NUMBER>/<TOPIC_ID>`:
+- **Group ID** = `-100` prepended to the first number (e.g. `1234567890` → `-1001234567890`)
+- **Topic ID** = the second number (e.g. `42`)
+
+Validate the parsed values look correct (group_id should be a large negative number starting with `-100`, topic_id should be a positive integer). Show the user:
+
 ```
-source ~/.zshrc 2>/dev/null; curl -s "https://api.telegram.org/bot${CLAUDE_NOTIFY_TG_TOKEN}/getUpdates?offset=-10"
-```
-
-Parse the JSON response. Look for entries where `result[].message.chat.type` is `"group"` or `"supergroup"`. For each unique group found, extract:
-- `message.chat.id` — the numeric group ID (negative number starting with -100)
-- `message.chat.title` — the group name
-
-**If groups are found:** show them like:
-```
-Found these groups your bot is in:
-
-  Group: "Claude Notifications"
-  ID: -1001234567890
+Parsed from URL:
+  Group ID: -1001234567890
+  Topic ID: 42
 ```
 
-If multiple groups found, use AskUserQuestion to let the user pick the right one. If only one, confirm it.
-
-Then save the group ID by running:
+**If the group ID env var is NOT already set** (first-time setup), save it globally:
 ```
-echo 'export CLAUDE_NOTIFY_TG_GROUP_ID="<GROUP_ID>"' >> ~/.zshrc
+echo 'export CLAUDE_NOTIFY_TG_GROUP_ID="<PARSED_GROUP_ID>"' >> ~/.zshrc
 source ~/.zshrc
 ```
+Tell the user: "Group ID saved globally — all your projects will use this group."
 
-**If NO groups are found:** tell the user:
+**If the group ID env var IS already set**, verify the parsed group ID matches the existing one. If it matches, no action needed — tell the user "Group ID matches your existing global setting."
+
+If it differs AND the user chose "Use same group" in Step 3b: warn them — this topic URL is from a different group than their global setting. Ask if they pasted the right URL. Offer to retry.
+
+If it differs AND the user chose "Use a different group for this project" in Step 3b: this is expected. Store the parsed group ID as `telegram.group_id_value` in the project config (Step 9) instead of updating ~/.zshrc.
+
+The topic ID will be saved directly into the project config (Step 9).
+
+#### Step 3d: Verify Telegram Setup
+
+Send a test message to confirm everything works. Build the curl command using the **actual values** collected during this setup — do NOT rely on env var interpolation, since project-specific values aren't in env vars:
+
+- **Bot token**: use the project-specific token if one was set in Step 3a, otherwise read from env: `source ~/.zshrc 2>/dev/null; echo $CLAUDE_NOTIFY_TG_TOKEN`
+- **Group ID**: use the parsed group ID from Step 3c (or project-specific override)
+- **Topic ID**: use the parsed topic ID from Step 3c
+
+Run (substituting the actual values directly into the command):
+```!
+curl -s -X POST "https://api.telegram.org/bot<ACTUAL_BOT_TOKEN>/sendMessage" -H "Content-Type: application/json" -d '{"chat_id": "<ACTUAL_GROUP_ID>", "message_thread_id": <ACTUAL_TOPIC_ID>, "text": "✅ claude-notify setup verified! This project is connected.", "parse_mode": "HTML"}'
 ```
-No groups found in your bot's recent updates. This usually means:
-  - The message hasn't reached the bot yet — wait a few seconds and try again
-  - Your bot isn't in the group — add it as a member first
-  - Too much time passed — Telegram only keeps recent updates, so send a fresh message
 
-Would you like to try again?
-```
-Use AskUserQuestion to offer retry or manual entry. For manual entry, ask them to paste the group ID directly (they may know it from another source).
+Check the response. If `ok: true`: tell the user setup is verified and they should see the message in their topic.
 
-#### Step 3c: Confirm Telegram Setup
+If it fails: check the error and help debug:
+- `"chat not found"` → group ID is wrong, or bot is not in the group
+- `"message thread not found"` → topic ID is wrong
+- `"bot was kicked"` → bot was removed from the group, re-add it
+- Other errors → show the raw error and suggest the user double-check their setup
 
 Tell the user:
 ```
 Telegram is configured:
-  ✓ Bot token set
-  ✓ Group ID set
-
-A forum topic will be auto-created in your group for this project on the
-first notification. The topic name will match the project label.
+  ✓ Bot token: <global or project-specific>
+  ✓ Group ID: <GROUP_ID> <global or project-specific>
+  ✓ Topic ID: <TOPIC_ID>
+  ✓ Test message sent successfully
 ```
 
 Proceed to Step 4.
 
 ### If Slack:
 
-Check if `CLAUDE_NOTIFY_SLACK_TOKEN` env var is set: `test -n "$CLAUDE_NOTIFY_SLACK_TOKEN"`
+Check if `CLAUDE_NOTIFY_SLACK_TOKEN` env var is set: `source ~/.zshrc 2>/dev/null; test -n "$CLAUDE_NOTIFY_SLACK_TOKEN" && echo "SET" || echo "MISSING"`
 
-If the bot token is missing, tell the user:
+**If the token is SET:** use AskUserQuestion to ask:
+
+**Question: "A global Slack bot token is already configured. Use it for this project?"**
+- header: "Slack token"
+- options:
+  - **Use global token (Recommended)** — "Use the bot token from CLAUDE_NOTIFY_SLACK_TOKEN (shared across projects)"
+  - **Use a different bot for this project** — "Set a project-specific Slack bot token stored in this project's config"
+
+If "Use global token": skip to the channel setup below.
+
+If "Use a different bot for this project": ask them to paste the token (same flow as MISSING below). Instead of saving to ~/.zshrc, store it as `slack.bot_token_value` in the project config (Step 9).
+
+**If the token is MISSING:** use AskUserQuestion to ask:
+
+**Question: "Do you already have a Slack Bot token?"**
+- header: "Slack bot"
+- options:
+  - **Yes, I have a token** — "I already created a Slack app and have the Bot User OAuth Token (starts with xoxb-)"
+  - **No, I need to create one** — "Show me how to create a Slack app and get a token"
+
+If "No, I need to create one": tell the user:
 ```
-You need a Slack Bot token:
+How to create a Slack Bot token:
+
 1. Go to https://api.slack.com/apps and click "Create New App" → "From scratch"
 2. Name it (e.g. "Claude Notify") and select your workspace
 3. Go to "OAuth & Permissions" and add these Bot Token OAuth Scopes:
@@ -213,10 +303,24 @@ You need a Slack Bot token:
    - channels:manage   — create channels (only needed if you want auto-created channels)
 4. Click "Install to Workspace" and authorize
 5. Copy the "Bot User OAuth Token" (starts with xoxb-)
-6. Add to your shell profile:
-   echo 'export CLAUDE_NOTIFY_SLACK_TOKEN="xoxb-..."' >> ~/.zshrc
-   source ~/.zshrc
 ```
+
+For both cases (already has token, or just created one), use AskUserQuestion with freeform input:
+
+**Question: "Paste your Slack Bot User OAuth Token (starts with xoxb-):"**
+- header: "Token"
+- options:
+  - **I've already set it in ~/.zshrc** — "I already added export CLAUDE_NOTIFY_SLACK_TOKEN=... to my shell profile"
+
+If they pick "I've already set it in ~/.zshrc": run `source ~/.zshrc` and re-check. If still missing, tell them to verify the export line exists in ~/.zshrc.
+
+If they paste a token: save it by running:
+```
+echo 'export CLAUDE_NOTIFY_SLACK_TOKEN="<THEIR_TOKEN>"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+Confirm the token is now set. Tell the user: "This Slack token is saved globally — it will be shared across all your projects."
 
 Then ask about the channel:
 
@@ -322,7 +426,7 @@ Then use AskUserQuestion to ask:
 - header: "Platform sound"
 - options:
   - **Yes (Recommended)** — "Both local macOS sound AND Telegram/Slack notification sound play"
-  - **No** — "Only the local macOS sound plays. Telegram/Slack messages arrive silently (disable_notification)."
+  - **No** — "Only the local macOS sound plays. Telegram messages arrive silently (disable_notification). Not supported for Slack."
 
 Map: "No" → `platform_sound: false`, "Yes" → `platform_sound: true`
 
@@ -343,7 +447,6 @@ If the user picks "Custom label", ask them to type the label using AskUserQuesti
 Auto-detect tries the git remote URL repo name first, then falls back to the directory name.
 
 The project label is also used for:
-- Telegram: the auto-created forum topic name
 - Slack: the auto-created channel name (#claude-<label>)
 
 ## Step 9: Generate Config
@@ -367,15 +470,29 @@ Based on all answers, generate the `notification-config.json` file.
 - `platform_sound` → from Step 7
 - `project_label` → empty string `""` for auto-detect, or the custom label
 
-**For Telegram config:**
+**For Telegram config (using global env vars):**
 ```json
 "telegram": {
   "bot_token_env": "CLAUDE_NOTIFY_TG_TOKEN",
   "group_id_env": "CLAUDE_NOTIFY_TG_GROUP_ID",
-  "topic_id": null
+  "topic_id": <PARSED_TOPIC_ID>
 }
 ```
-`topic_id: null` means a forum topic will be auto-created on first notification and the ID saved back here.
+
+**For Telegram config (with project-specific overrides):**
+If the user chose a project-specific bot token and/or group in Step 3a/3b, add the direct values:
+```json
+"telegram": {
+  "bot_token_env": "CLAUDE_NOTIFY_TG_TOKEN",
+  "bot_token_value": "<PROJECT_SPECIFIC_TOKEN>",
+  "group_id_env": "CLAUDE_NOTIFY_TG_GROUP_ID",
+  "group_id_value": "<PROJECT_SPECIFIC_GROUP_ID>",
+  "topic_id": <PARSED_TOPIC_ID>
+}
+```
+Only include `bot_token_value` if they chose a project-specific bot. Only include `group_id_value` if they chose a project-specific group. These override the env vars when present.
+
+`topic_id` is the number parsed from the topic URL in Step 3c. If the user skipped topic setup, use `null` (messages go to the General topic).
 
 **For Slack with auto-create:**
 ```json
@@ -398,9 +515,19 @@ The channel `#claude-<project-label>` will be created on first notification and 
 ```
 The channel ID is read from the `CLAUDE_NOTIFY_SLACK_CHANNEL` env var at runtime.
 
-Write the config to `$CWD/.claude/notification-config.json`. Create the `.claude/` directory if it doesn't exist.
+**For Slack with project-specific overrides:**
+If the user chose a project-specific bot token in the Slack setup, add the direct value:
+```json
+"slack": {
+  "bot_token_env": "CLAUDE_NOTIFY_SLACK_TOKEN",
+  "bot_token_value": "<PROJECT_SPECIFIC_TOKEN>",
+  "auto_create_channel": true,
+  "channel_id": null
+}
+```
+Only include `bot_token_value` if they chose a project-specific bot. It overrides the env var when present.
 
-**Reference:** Example configs are available in the plugin at `examples/telegram-with-reply.json`, `examples/slack-auto-create.json`, etc.
+Write the config to `<PROJECT_DIR>/.claude/notification-config.json` (the project directory chosen in Step 0). Use the absolute path. Create the `.claude/` directory if it doesn't exist.
 
 ## Step 10: Confirm and Test
 
@@ -409,8 +536,7 @@ Tell the user:
 2. Check that `.claude/notification-config.json` is in your `.gitignore` (it may contain project-specific topic/channel IDs)
 3. **Important**: If you just added env vars, restart your terminal or run `source ~/.zshrc` before testing
 4. Run `/test-notifications` to verify everything works
-5. For Telegram: a topic will be auto-created in your group on the first notification (or test)
-6. For Slack with auto-create: a `#claude-<project>` channel will be created on first notification (or test)
+5. For Slack with auto-create: a `#claude-<project>` channel will be created on first notification (or test)
 
 Show a summary of what was configured, including:
 - Channel type

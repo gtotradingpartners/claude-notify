@@ -67,12 +67,15 @@ function loadConfig(projectDir) {
     _projectDir: projectDir,
   };
 
-  // Resolve env vars for Telegram
-  config.telegram.bot_token = process.env[config.telegram.bot_token_env] || '';
-  config.telegram.group_id = process.env[config.telegram.group_id_env] || '';
+  // Resolve Telegram credentials: per-project direct values take priority over env vars
+  config.telegram.bot_token = config.telegram.bot_token_value
+    || process.env[config.telegram.bot_token_env] || '';
+  config.telegram.group_id = config.telegram.group_id_value
+    || process.env[config.telegram.group_id_env] || '';
 
-  // Resolve env vars for Slack
-  config.slack.bot_token = process.env[config.slack.bot_token_env] || '';
+  // Resolve Slack credentials: per-project direct values take priority over env vars
+  config.slack.bot_token = config.slack.bot_token_value
+    || process.env[config.slack.bot_token_env] || '';
   // channel can come from env var OR from auto-created channel_id in config
   config.slack.channel = config.slack.channel_id || process.env[config.slack.channel_env] || '';
 
@@ -114,12 +117,8 @@ function updateConfigField(configPath, section, key, value) {
   fs.writeFileSync(configPath, JSON.stringify(raw, null, 2) + '\n', 'utf-8');
 }
 
-function saveTopicId(config, topicId) {
-  updateConfigField(config._configPath, 'telegram', 'topic_id', topicId);
-}
-
 function saveSlackChannelId(config, channelId) {
   updateConfigField(config._configPath, 'slack', 'channel_id', channelId);
 }
 
-module.exports = { loadConfig, saveTopicId, saveSlackChannelId };
+module.exports = { loadConfig, saveSlackChannelId };

@@ -7,7 +7,7 @@ Bidirectional notification hooks for [Claude Code](https://docs.anthropic.com/en
 - **Telegram & Slack** — choose per project
 - **Bidirectional replies** — reply from Telegram/Slack, Claude receives your response
 - **Per-project config** — different projects can have different channels, sounds, and settings
-- **Forum topics (Telegram)** — one topic per project in a shared group, auto-created
+- **Forum topics (Telegram)** — one topic per project in a shared group
 - **Channel per project (Slack)** — auto-creates `#claude-<project>` channels
 - **Conversation context** — optionally include recent messages so you know what Claude was doing
 - **macOS sounds** — local alert sounds via `afplay`
@@ -73,7 +73,7 @@ Sends a test notification and (if reply-back is enabled) waits for your reply.
 
 ## Environment Variables
 
-Credentials are stored as environment variables, never in config files.
+Credentials are stored as environment variables by default (shared across projects). For project-specific overrides, values can optionally be stored directly in the project's config file.
 
 ### Telegram
 
@@ -91,8 +91,11 @@ export CLAUDE_NOTIFY_TG_GROUP_ID="-100XXXXXXXXXX"
 **Telegram setup requirements:**
 - Create a group with **Topics** (forum mode) enabled
 - Add your bot to the group and make it an **admin**
-- A forum topic is auto-created per project on first notification
-- **Group ID discovery:** `/claude-notify:setup-notifications` finds it automatically via your bot's API
+- Create a topic for each project (e.g. "HypeForm", "my-api")
+- **Group ID + Topic ID:** both are extracted from the topic URL during setup
+  - Share/copy the topic link → `https://t.me/c/1234567890/42`
+  - Group ID = `-100` + first number → `-1001234567890`
+  - Topic ID = second number → `42`
 
 ### Slack
 
@@ -135,7 +138,7 @@ Each project has its own `.claude/notification-config.json`. Here's a full examp
   "telegram": {
     "bot_token_env": "CLAUDE_NOTIFY_TG_TOKEN",
     "group_id_env": "CLAUDE_NOTIFY_TG_GROUP_ID",
-    "topic_id": null
+    "topic_id": 42
   },
   "sound": "Glass",
   "sounds": {
@@ -166,8 +169,10 @@ Each project has its own `.claude/notification-config.json`. Here's a full examp
 | `reply_timeout` | `120` | Seconds to wait for a reply |
 | `project_label` | `""` | Empty = auto-detect from git/dirname |
 
+**Set during setup:**
+- `telegram.topic_id` — parsed from topic URL during `/setup-notifications`
+
 **Auto-populated fields** (don't set these manually):
-- `telegram.topic_id` — set after first notification auto-creates the forum topic
 - `slack.channel_id` — set after first notification auto-creates the Slack channel
 
 ## How Reply-Back Works
@@ -189,6 +194,7 @@ When `wait_for_reply` is enabled:
 | `/claude-notify:setup-notifications` | Interactive setup wizard (includes Telegram bot/group setup) |
 | `/claude-notify:test-notifications` | Send a test notification and verify reply-back |
 | `/claude-notify:disable-notifications` | Disable notifications for the current project |
+| `/claude-notify:reset-notifications` | Completely remove notification config (clean slate) |
 
 ## Project Structure
 
@@ -203,6 +209,7 @@ claude-notify/
 │       ├── commands/             # Slash commands
 │       │   ├── setup-notifications.md
 │       │   ├── test-notifications.md
+│       │   ├── reset-notifications.md
 │       │   └── disable-notifications.md
 │       ├── hooks/
 │       │   └── hooks.json        # Hook registrations (Notification, Stop, SubagentStop)
@@ -230,10 +237,11 @@ claude-notify/
 - Run `source ~/.zshrc` (or restart your terminal) after adding env vars
 - Verify with: `echo $CLAUDE_NOTIFY_TG_TOKEN`
 
-**Telegram: "Failed to create forum topic"**
-- Your bot must be an **admin** in the group
-- The group must have **Topics** enabled (Group Settings > Edit > Topics)
+**Telegram: "chat not found" or "message thread not found"**
 - Verify the group ID is correct (negative number starting with `-100`)
+- Verify the topic ID matches the topic you created
+- Your bot must be a **member** of the group (admin recommended)
+- Re-run `/setup-notifications` to re-parse from the topic URL
 
 **Slack: "Missing scope" errors**
 - Go to your Slack app settings > OAuth & Permissions

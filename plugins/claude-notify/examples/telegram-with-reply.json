@@ -15,7 +15,7 @@
   "telegram": {
     "bot_token_env": "CLAUDE_NOTIFY_TG_TOKEN",
     "group_id_env": "CLAUDE_NOTIFY_TG_GROUP_ID",
-    "topic_id": null
+    "topic_id": 42
   },
   "sound": "default",
   "sounds": {

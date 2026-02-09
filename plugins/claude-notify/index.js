@@ -5,7 +5,7 @@ const { loadConfig } = require('./lib/config');
 const { parseTranscript } = require('./lib/transcript');
 const { formatMessage } = require('./lib/formatter');
 const { playSound, getSoundForEvent } = require('./lib/sound');
-const { ensureTopic, sendTelegram, pollTelegramReply } = require('./lib/telegram');
+const { getTopicId, sendTelegram, pollTelegramReply } = require('./lib/telegram');
 const { ensureChannel, sendSlack, pollSlackReply } = require('./lib/slack');
 
 async function readStdin() {
@@ -46,7 +46,7 @@ async function runTest() {
   if (config.channel === 'telegram') {
     console.log(`\nTelegram bot token: ${config.telegram.bot_token ? 'SET' : 'MISSING'}`);
     console.log(`Telegram group ID: ${config.telegram.group_id || 'MISSING'}`);
-    console.log(`Telegram topic ID: ${config.telegram.topic_id || 'will auto-create'}`);
+    console.log(`Telegram topic ID: ${config.telegram.topic_id || 'not set (using General topic)'}`);
 
     if (!config.telegram.bot_token || !config.telegram.group_id) {
       console.error('\nError: Set CLAUDE_NOTIFY_TG_TOKEN and CLAUDE_NOTIFY_TG_GROUP_ID env vars');
@@ -54,8 +54,8 @@ async function runTest() {
     }
 
     console.log('\nSending test notification to Telegram...');
-    const topicId = await ensureTopic(config);
-    console.log(`Topic ID: ${topicId}`);
+    const topicId = getTopicId(config);
+    console.log(`Topic ID: ${topicId || 'none (General topic)'}`);
 
     const testInput = {
       hook_event_name: 'Notification',
@@ -128,7 +128,7 @@ async function runTest() {
 
 async function sendNotification(config, message) {
   if (config.channel === 'telegram') {
-    const topicId = await ensureTopic(config);
+    const topicId = getTopicId(config);
     await sendTelegram(config, message, topicId);
     return (timeout) => pollTelegramReply(config, topicId, timeout);
   }

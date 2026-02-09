@@ -1,37 +1,10 @@
 const https = require('https');
-const { saveTopicId } = require('./config');
 
 const TELEGRAM_API = 'https://api.telegram.org/bot';
 
-async function ensureTopic(config) {
-  if (config.telegram.topic_id) {
-    return config.telegram.topic_id;
-  }
-
-  const token = config.telegram.bot_token;
-  const groupId = config.telegram.group_id;
-
-  if (!token || !groupId) {
-    throw new Error('Telegram bot_token or group_id not configured');
-  }
-
-  // Auto-create a forum topic for this project
-  const result = await httpPost(`${TELEGRAM_API}${token}/createForumTopic`, {
-    chat_id: groupId,
-    name: config.project_label || 'Claude Notifications',
-  });
-
-  if (!result.ok) {
-    throw new Error(`Failed to create forum topic: ${JSON.stringify(result)}`);
-  }
-
-  const topicId = result.result.message_thread_id;
-
-  // Cache the topic_id back to the project config file
-  saveTopicId(config, topicId);
-  config.telegram.topic_id = topicId;
-
-  return topicId;
+function getTopicId(config) {
+  // Return configured topic_id, or null (messages go to General topic)
+  return config.telegram.topic_id ?? null;
 }
 
 async function sendTelegram(config, message, topicId) {
@@ -161,4 +134,4 @@ function httpPost(url, data) {
   });
 }
 
-module.exports = { ensureTopic, sendTelegram, pollTelegramReply };
+module.exports = { getTopicId, sendTelegram, pollTelegramReply };
