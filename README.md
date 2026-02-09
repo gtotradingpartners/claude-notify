@@ -147,6 +147,29 @@ claude plugin install claude-notify@claude-notify --scope user
 claude plugin enable claude-notify@claude-notify
 ```
 
+### How Scopes Work
+
+Claude Code has two levels of settings: **user-level** (global) and **project-level** (per directory).
+
+**Plugin installation** (`--scope user`) registers the hooks globally — the plugin's Stop, Notification, and SubagentStop hooks fire for every project you open in Claude Code. You do not need to add `claude-notify` to each project's `enabledPlugins`.
+
+**Notification behavior** is controlled per-project by `$PROJECT/.claude/notification-config.json`. When a hook fires:
+- If the project has no `notification-config.json` → the hook exits silently (no notification)
+- If `notification-config.json` exists with `"enabled": false` → exits silently
+- If `"enabled": true` → notifications are sent according to that project's config
+
+This means the plugin is installed once but each project decides independently whether and how to get notifications.
+
+**Project-level settings** (`$PROJECT/.claude/settings.json`) may also list other plugins. If another plugin registers a Stop hook (e.g. `ralph-loop`), you'll see a "2 stop hooks" message. Uninstall or disable conflicting plugins:
+
+```bash
+# Check what plugins are enabled for a project
+claude plugin list
+
+# Disable a conflicting plugin at the project level
+claude plugin disable ralph-loop@claude-plugins-official
+```
+
 ### Set Up a Project
 
 In any project directory, run the interactive setup command:
@@ -161,7 +184,7 @@ This walks you through:
 3. Selecting which events trigger notifications
 4. History context, reply-back, sounds, and project label
 
-The setup creates `.claude/notification-config.json` in the project.
+The setup creates `.claude/notification-config.json` in the project. Each project can use different channels (Telegram vs Slack), different topics/channels, different sounds, and different reply-back settings.
 
 ### Verify It Works
 
@@ -171,9 +194,75 @@ The setup creates `.claude/notification-config.json` in the project.
 
 Sends a test notification and (if reply-back is enabled) waits for your reply.
 
-## Environment Variables
+## Credentials
 
-Credentials are stored as environment variables by default (shared across projects). For project-specific overrides, values can optionally be stored directly in the project's config file.
+Credentials resolve in this order for each project:
+
+1. **Direct value in config** (`bot_token_value`) — highest priority, per-project
+2. **Env var name in config** (`bot_token_env`) — resolved at runtime from the environment
+3. **Default env var** (`CLAUDE_NOTIFY_TG_TOKEN`) — shared across all projects
+
+This means you can mix and match strategies:
+
+### Simplest: One bot, all projects share it
+
+Set env vars once in `~/.zshrc`. Every project uses the same bot and credentials by default — only the `topic_id` (Telegram) or `channel_id` (Slack) differs per project.
+
+```bash
+# ~/.zshrc — shared by all projects
+export CLAUDE_NOTIFY_TG_TOKEN="your-bot-token"
+export CLAUDE_NOTIFY_TG_GROUP_ID="-100XXXXXXXXXX"
+```
+
+### Different bots per project
+
+Point `bot_token_env` to a different env var name in each project's config. Each project reads its token from a separate env var.
+
+```json
+// Project A: notification-config.json
+{
+  "telegram": {
+    "bot_token_env": "CLAUDE_NOTIFY_TG_TOKEN_PROJECTA",
+    "group_id_env": "CLAUDE_NOTIFY_TG_GROUP_ID_PROJECTA",
+    "topic_id": 42
+  }
+}
+
+// Project B: notification-config.json
+{
+  "telegram": {
+    "bot_token_env": "CLAUDE_NOTIFY_TG_TOKEN_PROJECTB",
+    "group_id_env": "CLAUDE_NOTIFY_TG_GROUP_ID_PROJECTB",
+    "topic_id": 7
+  }
+}
+```
+
+```bash
+# ~/.zshrc
+export CLAUDE_NOTIFY_TG_TOKEN_PROJECTA="bot-token-a"
+export CLAUDE_NOTIFY_TG_GROUP_ID_PROJECTA="-100111111111"
+export CLAUDE_NOTIFY_TG_TOKEN_PROJECTB="bot-token-b"
+export CLAUDE_NOTIFY_TG_GROUP_ID_PROJECTB="-100222222222"
+```
+
+### Direct values in config (no env vars)
+
+Store credentials directly in the project's config file using `_value` fields. These take priority over env vars. Useful for isolated setups but be careful not to commit secrets.
+
+```json
+{
+  "telegram": {
+    "bot_token_value": "123456789:ABCDefGh...",
+    "group_id_value": "-1001234567890",
+    "topic_id": 42
+  }
+}
+```
+
+### Mix channels across projects
+
+Each project independently chooses `"channel": "telegram"` or `"channel": "slack"`. One project can use Telegram while another uses Slack — they don't need to match.
 
 ### Telegram
 
@@ -181,12 +270,6 @@ Credentials are stored as environment variables by default (shared across projec
 |----------|-------------|
 | `CLAUDE_NOTIFY_TG_TOKEN` | Bot token from [@BotFather](https://t.me/BotFather) (format: `123456789:ABCDefGh...`) |
 | `CLAUDE_NOTIFY_TG_GROUP_ID` | Group chat ID (negative number, e.g. `-1001234567890`) |
-
-```bash
-# Add to ~/.zshrc or ~/.bashrc
-export CLAUDE_NOTIFY_TG_TOKEN="your-bot-token"
-export CLAUDE_NOTIFY_TG_GROUP_ID="-100XXXXXXXXXX"
-```
 
 **Telegram setup requirements:**
 - Create a group with **Topics** (forum mode) enabled
@@ -203,12 +286,6 @@ export CLAUDE_NOTIFY_TG_GROUP_ID="-100XXXXXXXXXX"
 |----------|-------------|
 | `CLAUDE_NOTIFY_SLACK_TOKEN` | Bot User OAuth Token (starts with `xoxb-`) |
 | `CLAUDE_NOTIFY_SLACK_CHANNEL` | Channel ID (optional — only if not using auto-create) |
-
-```bash
-export CLAUDE_NOTIFY_SLACK_TOKEN="xoxb-..."
-# Optional: only needed if NOT using auto-create channels
-export CLAUDE_NOTIFY_SLACK_CHANNEL="C0123456789"
-```
 
 **Required Slack OAuth scopes:**
 - `chat:write` — send messages
