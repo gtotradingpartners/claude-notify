@@ -1,12 +1,25 @@
 #!/usr/bin/env node
 'use strict';
 
+const fs = require('fs');
+const path = require('path');
 const { loadConfig } = require('./lib/config');
 const { parseTranscript } = require('./lib/transcript');
 const { formatMessage } = require('./lib/formatter');
 const { playSound, getSoundForEvent } = require('./lib/sound');
 const { getTopicId, sendTelegram, pollTelegramReply } = require('./lib/telegram');
 const { ensureChannel, sendSlack, pollSlackReply } = require('./lib/slack');
+
+const LOG_FILE = path.join(process.env.HOME || '/tmp', '.claude', 'claude-notify.log');
+
+function log(msg) {
+  const ts = new Date().toISOString();
+  try {
+    fs.appendFileSync(LOG_FILE, `[${ts}] ${msg}\n`);
+  } catch (_) {
+    // ignore log failures
+  }
+}
 
 async function readStdin() {
   return new Promise((resolve) => {
@@ -148,9 +161,12 @@ async function main() {
     return runTest();
   }
 
+  log('--- hook invoked ---');
+
   // Read hook JSON from stdin
   const raw = await readStdin();
   if (!raw.trim()) {
+    log('EXIT: empty stdin');
     process.exit(0);
   }
 
@@ -158,32 +174,38 @@ async function main() {
   try {
     input = JSON.parse(raw);
   } catch (e) {
+    log(`EXIT: JSON parse error: ${e.message}`);
     process.stderr.write(`claude-notify: failed to parse stdin JSON: ${e.message}\n`);
     process.exit(1);
   }
 
+  const eventName = input.hook_event_name;
+  const notifType = input.notification_type || '';
+  log(`event=${eventName} type=${notifType} session=${input.session_id || 'unknown'}`);
+
   // Determine project directory
   const projectDir = process.env.CLAUDE_PROJECT_DIR || input.cwd || process.cwd();
+  log(`project=${projectDir}`);
 
   // Load project config
   const config = loadConfig(projectDir);
 
   // Early exit if disabled or no config
   if (!config.enabled) {
+    log(`EXIT: disabled for ${config.project_label || projectDir}`);
     process.exit(0);
   }
 
-  const eventName = input.hook_event_name;
-
   // Check if this event type is enabled
   if (!config.events[eventName]) {
+    log(`EXIT: event ${eventName} not enabled`);
     process.exit(0);
   }
 
   // For Notification events, check notification_type filter
   if (eventName === 'Notification' && config.notification_types) {
-    const notifType = input.notification_type;
     if (notifType && config.notification_types[notifType] === false) {
+      log(`EXIT: notification_type ${notifType} filtered out`);
       process.exit(0);
     }
   }
@@ -194,7 +216,9 @@ async function main() {
   // Delay before sending (gives you time to respond at the terminal first)
   const delay = config.send_delay || 0;
   if (delay > 0) {
+    log(`delaying ${delay}s before send`);
     await new Promise(resolve => setTimeout(resolve, delay * 1000));
+    log('delay complete, sending now');
   }
 
   // Parse transcript history if enabled
@@ -211,16 +235,23 @@ async function main() {
   playSound(soundName);
 
   // Send to configured channel and get a poll function for replies
+  log(`sending to ${config.channel} (topic=${config.telegram?.topic_id || 'n/a'})`);
   const pollReply = await sendNotification(config, message);
+  log('sent successfully');
 
   // Handle blocking reply
   if (pollReply && config.wait_for_reply && !stopHookActive) {
+    log(`polling for reply (timeout=${config.reply_timeout}s)`);
     const reply = await pollReply(config.reply_timeout);
     if (reply) {
+      log(`reply received: ${reply.substring(0, 100)}`);
       outputReply(eventName, config.channel, reply);
+    } else {
+      log('no reply (timeout)');
     }
   }
 
+  log('--- hook complete ---');
   process.exit(0);
 }
 
