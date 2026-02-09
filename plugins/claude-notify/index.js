@@ -198,8 +198,14 @@ async function main() {
   const notifType = input.notification_type || '';
   log(`event=${eventName} type=${notifType} session=${input.session_id || 'unknown'}`);
 
-  // Determine project directory
-  const projectDir = process.env.CLAUDE_PROJECT_DIR || input.cwd || process.cwd();
+  // Determine project directory — only use values Claude Code provides.
+  // Do NOT fall back to process.cwd() which may be a macOS-protected directory
+  // (Desktop, Documents, Google Drive) and trigger TCC privacy prompts.
+  const projectDir = process.env.CLAUDE_PROJECT_DIR || input.cwd;
+  if (!projectDir) {
+    log('EXIT: no project directory (CLAUDE_PROJECT_DIR not set, no cwd in input)');
+    process.exit(0);
+  }
   log(`project=${projectDir}`);
 
   // Load project config

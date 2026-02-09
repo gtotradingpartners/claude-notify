@@ -1,5 +1,32 @@
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
+
+// macOS directories that trigger TCC privacy prompts when accessed
+const HOME = os.homedir();
+const PROTECTED_DIRS = [
+  path.join(HOME, 'Desktop'),
+  path.join(HOME, 'Documents'),
+  path.join(HOME, 'Downloads'),
+  path.join(HOME, 'Library'),
+  path.join(HOME, 'Library', 'CloudStorage'),  // Google Drive, iCloud, OneDrive, Dropbox
+];
+
+function isProtectedPath(dir) {
+  const resolved = path.resolve(dir);
+  // Check if dir IS or is INSIDE a protected macOS directory
+  // (but allow ~/.claude/ which is inside home but not protected)
+  for (const protectedDir of PROTECTED_DIRS) {
+    if (resolved === protectedDir || resolved.startsWith(protectedDir + '/')) {
+      return true;
+    }
+  }
+  // Also catch cloud storage mounted elsewhere
+  if (resolved.includes('/CloudStorage/') || resolved.includes('/Google Drive/')) {
+    return true;
+  }
+  return false;
+}
 
 const DEFAULT_CONFIG = {
   enabled: false,
@@ -43,6 +70,11 @@ function getConfigPath(projectDir) {
 
 function loadConfig(projectDir) {
   const configPath = getConfigPath(projectDir);
+
+  // Skip filesystem access for macOS-protected directories to avoid TCC privacy prompts
+  if (isProtectedPath(projectDir)) {
+    return { ...DEFAULT_CONFIG, _configPath: configPath, _projectDir: projectDir };
+  }
 
   if (!fs.existsSync(configPath)) {
     return { ...DEFAULT_CONFIG, _configPath: configPath, _projectDir: projectDir };
@@ -89,16 +121,18 @@ function loadConfig(projectDir) {
 }
 
 function detectProjectLabel(projectDir) {
-  // Try git repo name first
-  try {
-    const gitConfigPath = path.join(projectDir, '.git', 'config');
-    if (fs.existsSync(gitConfigPath)) {
-      const gitConfig = fs.readFileSync(gitConfigPath, 'utf-8');
-      const urlMatch = gitConfig.match(/url\s*=\s*.*\/([^/\s]+?)(?:\.git)?\s*$/m);
-      if (urlMatch) return urlMatch[1];
+  // Try git repo name first (skip for protected dirs to avoid TCC prompts)
+  if (!isProtectedPath(projectDir)) {
+    try {
+      const gitConfigPath = path.join(projectDir, '.git', 'config');
+      if (fs.existsSync(gitConfigPath)) {
+        const gitConfig = fs.readFileSync(gitConfigPath, 'utf-8');
+        const urlMatch = gitConfig.match(/url\s*=\s*.*\/([^/\s]+?)(?:\.git)?\s*$/m);
+        if (urlMatch) return urlMatch[1];
+      }
+    } catch (_) {
+      // ignore
     }
-  } catch (_) {
-    // ignore
   }
   // Fall back to directory name
   return path.basename(projectDir);
