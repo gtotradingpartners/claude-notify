@@ -3,6 +3,21 @@
 
 const fs = require('fs');
 const path = require('path');
+
+// Top-level crash handler — must be first thing after requires
+const CRASH_LOG = path.join(process.env.HOME || '/tmp', '.claude', 'claude-notify-crash.log');
+process.on('uncaughtException', (err) => {
+  const msg = `[${new Date().toISOString()}] CRASH: ${err.stack || err.message}\n`;
+  try { fs.appendFileSync(CRASH_LOG, msg); } catch (_) {}
+  process.stderr.write(`claude-notify crash: ${err.message}\n`);
+  process.exit(1);
+});
+process.on('unhandledRejection', (err) => {
+  const msg = `[${new Date().toISOString()}] UNHANDLED REJECTION: ${err?.stack || err}\n`;
+  try { fs.appendFileSync(CRASH_LOG, msg); } catch (_) {}
+  process.stderr.write(`claude-notify unhandled rejection: ${err?.message || err}\n`);
+  process.exit(1);
+});
 const { loadConfig } = require('./lib/config');
 const { parseTranscript } = require('./lib/transcript');
 const { formatMessage } = require('./lib/formatter');
