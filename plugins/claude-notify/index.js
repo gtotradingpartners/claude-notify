@@ -67,7 +67,8 @@ async function runTest() {
 
   if (!config.enabled) {
     console.log('\nNotifications are DISABLED for this project.');
-    console.log('Create .claude/notification-config.json with "enabled": true to activate.');
+    console.log(`Config path: ${config._configPath}`);
+    console.log('Run /setup-notifications to configure, or create the config file with "enabled": true.');
     process.exit(0);
   }
 
