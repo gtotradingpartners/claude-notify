@@ -58,36 +58,64 @@ function formatTelegramHTML(hookInput, config, historyContext, willPollReply) {
   const project = config.project_label;
   const sessionId = hookInput.session_id || 'unknown';
 
-  // Build header (always included)
+  // Build header
   let header = `${emoji} <b>${escapeHTML(title)}</b>\n`;
   header += `<b>Project:</b> ${escapeHTML(project)}\n`;
   header += `<b>Session:</b> <code>${escapeHTML(sessionId)}</code>\n\n`;
   header += `${escapeHTML(body)}\n`;
 
-  // Build footer (always included)
+  // Build footer
   let footer = '';
   if (willPollReply) {
     footer = `\n<i>Reply to this message or respond directly in Claude Code.</i>`;
   }
 
-  // Fit history context into remaining space
-  let contextBlock = '';
-  if (historyContext) {
-    const available = TELEGRAM_MAX_LENGTH - header.length - footer.length - 60; // 60 for markup overhead
-    let trimmedContext = escapeHTML(historyContext);
-    if (trimmedContext.length > available) {
-      trimmedContext = trimmedContext.substring(trimmedContext.length - available) ;
-      // Start from a clean line break
-      const newlineIdx = trimmedContext.indexOf('\n');
-      if (newlineIdx > 0 && newlineIdx < 100) {
-        trimmedContext = trimmedContext.substring(newlineIdx + 1);
-      }
-      trimmedContext = '...\n' + trimmedContext;
-    }
-    contextBlock = `\n<b>Recent context:</b>\n<pre>${trimmedContext}</pre>\n`;
+  // If no context, single message
+  if (!historyContext) {
+    return [header + footer];
   }
 
-  return header + contextBlock + footer;
+  const escapedContext = escapeHTML(historyContext);
+  const contextHeader = '\n<b>Recent context:</b>\n';
+
+  // Try to fit in one message
+  const singleMsg = header + contextHeader + `<pre>${escapedContext}</pre>\n` + footer;
+  if (singleMsg.length <= TELEGRAM_MAX_LENGTH) {
+    return [singleMsg];
+  }
+
+  // Split into multiple messages: header first, then context chunks, footer on last
+  const messages = [header];
+  const contextPrefix = '<pre>';
+  const contextSuffix = '</pre>';
+  const chunkMax = TELEGRAM_MAX_LENGTH - contextPrefix.length - contextSuffix.length - 20;
+
+  // Split context into chunks at line boundaries
+  const contextLines = escapedContext.split('\n');
+  let currentChunk = contextHeader + contextPrefix;
+
+  for (const line of contextLines) {
+    if (currentChunk.length + line.length + 1 > chunkMax && currentChunk.length > contextPrefix.length + contextHeader.length) {
+      messages.push(currentChunk + contextSuffix);
+      currentChunk = contextPrefix;
+    }
+    currentChunk += (currentChunk === contextPrefix ? '' : '\n') + line;
+  }
+
+  if (currentChunk.length > contextPrefix.length) {
+    // Add footer to last context chunk if it fits
+    const lastChunk = currentChunk + contextSuffix;
+    if (lastChunk.length + footer.length <= TELEGRAM_MAX_LENGTH) {
+      messages.push(lastChunk + footer);
+    } else {
+      messages.push(lastChunk);
+      if (footer) messages.push(footer);
+    }
+  } else if (footer) {
+    messages.push(footer);
+  }
+
+  return messages;
 }
 
 function formatSlackMrkdwn(hookInput, config, historyContext, willPollReply) {
@@ -105,23 +133,21 @@ function formatSlackMrkdwn(hookInput, config, historyContext, willPollReply) {
     footer = `\n_Reply in thread or respond directly in Claude Code._`;
   }
 
-  let contextBlock = '';
-  if (historyContext) {
-    // Slack limit is ~4000 chars for best rendering
-    const available = 3500 - header.length - footer.length;
-    let trimmedContext = historyContext;
-    if (trimmedContext.length > available) {
-      trimmedContext = trimmedContext.substring(trimmedContext.length - available);
-      const newlineIdx = trimmedContext.indexOf('\n');
-      if (newlineIdx > 0 && newlineIdx < 100) {
-        trimmedContext = trimmedContext.substring(newlineIdx + 1);
-      }
-      trimmedContext = '...\n' + trimmedContext;
-    }
-    contextBlock = `\n*Recent context:*\n\`\`\`${trimmedContext}\`\`\`\n`;
+  if (!historyContext) {
+    return [header + footer];
   }
 
-  return header + contextBlock + footer;
+  // Slack can handle longer messages but keep it reasonable
+  const singleMsg = header + `\n*Recent context:*\n\`\`\`${historyContext}\`\`\`\n` + footer;
+  if (singleMsg.length <= 4000) {
+    return [singleMsg];
+  }
+
+  // Split: header, context, footer
+  const messages = [header];
+  messages.push(`*Recent context:*\n\`\`\`${historyContext}\`\`\``);
+  if (footer) messages.push(footer);
+  return messages;
 }
 
 function escapeHTML(text) {

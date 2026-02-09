@@ -1,6 +1,6 @@
 const fs = require('fs');
 
-const HISTORY_MSG_MAX_LENGTH = 500;
+const HISTORY_MSG_MAX_LENGTH = 2000;
 
 function parseTranscript(transcriptPath, lineCount) {
   if (!transcriptPath || !fs.existsSync(transcriptPath)) return '';

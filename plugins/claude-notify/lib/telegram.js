@@ -7,7 +7,7 @@ function getTopicId(config) {
   return config.telegram.topic_id ?? null;
 }
 
-async function sendTelegram(config, message, topicId) {
+async function sendTelegram(config, messages, topicId) {
   const token = config.telegram.bot_token;
   const groupId = config.telegram.group_id;
 
@@ -15,27 +15,35 @@ async function sendTelegram(config, message, topicId) {
     throw new Error('Telegram bot_token or group_id not configured');
   }
 
-  const payload = {
-    chat_id: groupId,
-    text: message,
-    parse_mode: 'HTML',
-  };
+  // Support single string or array of messages
+  const msgArray = Array.isArray(messages) ? messages : [messages];
+  let lastMessageId;
 
-  if (topicId) {
-    payload.message_thread_id = topicId;
+  for (const message of msgArray) {
+    const payload = {
+      chat_id: groupId,
+      text: message,
+      parse_mode: 'HTML',
+    };
+
+    if (topicId) {
+      payload.message_thread_id = topicId;
+    }
+
+    if (config.platform_sound === false) {
+      payload.disable_notification = true;
+    }
+
+    const result = await httpPost(`${TELEGRAM_API}${token}/sendMessage`, payload);
+
+    if (!result.ok) {
+      throw new Error(`Telegram sendMessage failed: ${JSON.stringify(result)}`);
+    }
+
+    lastMessageId = result.result.message_id;
   }
 
-  if (config.platform_sound === false) {
-    payload.disable_notification = true;
-  }
-
-  const result = await httpPost(`${TELEGRAM_API}${token}/sendMessage`, payload);
-
-  if (!result.ok) {
-    throw new Error(`Telegram sendMessage failed: ${JSON.stringify(result)}`);
-  }
-
-  return result.result.message_id;
+  return lastMessageId;
 }
 
 async function pollTelegramReply(config, topicId, timeoutSeconds, shouldAbort) {

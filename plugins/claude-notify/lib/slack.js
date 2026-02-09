@@ -67,7 +67,7 @@ async function ensureChannel(config) {
   throw new Error(`Failed to create/find Slack channel "${channelName}": ${result.error || JSON.stringify(result)}`);
 }
 
-async function sendSlack(config, message) {
+async function sendSlack(config, messages) {
   const token = config.slack.bot_token;
   const channel = config.slack.channel;
 
@@ -75,17 +75,25 @@ async function sendSlack(config, message) {
     throw new Error('Slack bot_token or channel not configured');
   }
 
-  const result = await slackApiPost('chat.postMessage', token, {
-    channel: channel,
-    text: message,
-    mrkdwn: true,
-  });
+  // Support single string or array of messages
+  const msgArray = Array.isArray(messages) ? messages : [messages];
+  let lastRef;
 
-  if (!result.ok) {
-    throw new Error(`Slack chat.postMessage failed: ${result.error || JSON.stringify(result)}`);
+  for (const message of msgArray) {
+    const result = await slackApiPost('chat.postMessage', token, {
+      channel: channel,
+      text: message,
+      mrkdwn: true,
+    });
+
+    if (!result.ok) {
+      throw new Error(`Slack chat.postMessage failed: ${result.error || JSON.stringify(result)}`);
+    }
+
+    lastRef = { channel: result.channel, ts: result.ts };
   }
 
-  return { channel: result.channel, ts: result.ts };
+  return lastRef;
 }
 
 async function pollSlackReply(config, messageRef, timeoutSeconds, shouldAbort) {
