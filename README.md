@@ -34,11 +34,8 @@ Bidirectional notification hooks for [Claude Code](https://docs.anthropic.com/en
 ### Install the Plugin
 
 ```bash
-# 1. Add the marketplace (from GitHub or a local clone)
-claude plugin marketplace add https://github.com/YOUR_USERNAME/claude-notify.git
-
-# Or if you cloned locally:
-claude plugin marketplace add /path/to/claude-notify
+# 1. Add the marketplace
+claude plugin marketplace add https://github.com/gtotradingpartners/claude-notify.git
 
 # 2. Install the plugin globally
 claude plugin install claude-notify@claude-notify --scope user
