@@ -46,14 +46,14 @@ function parseEventDetails(hookInput) {
   };
 }
 
-function formatMessage(hookInput, config, historyContext) {
+function formatMessage(hookInput, config, historyContext, willPollReply) {
   if (config.channel === 'telegram') {
-    return formatTelegramHTML(hookInput, config, historyContext);
+    return formatTelegramHTML(hookInput, config, historyContext, willPollReply);
   }
-  return formatSlackMrkdwn(hookInput, config, historyContext);
+  return formatSlackMrkdwn(hookInput, config, historyContext, willPollReply);
 }
 
-function formatTelegramHTML(hookInput, config, historyContext) {
+function formatTelegramHTML(hookInput, config, historyContext, willPollReply) {
   const { emoji, title, body } = parseEventDetails(hookInput);
   const project = config.project_label;
   const sessionId = hookInput.session_id || 'unknown';
@@ -67,7 +67,7 @@ function formatTelegramHTML(hookInput, config, historyContext) {
     msg += `\n<b>Recent context:</b>\n<pre>${escapeHTML(historyContext)}</pre>\n`;
   }
 
-  if (config.wait_for_reply) {
+  if (willPollReply) {
     msg += `\n<i>Reply to this message to send instructions to Claude.</i>`;
   }
 
@@ -79,7 +79,7 @@ function formatTelegramHTML(hookInput, config, historyContext) {
   return msg;
 }
 
-function formatSlackMrkdwn(hookInput, config, historyContext) {
+function formatSlackMrkdwn(hookInput, config, historyContext, willPollReply) {
   const { emoji, title, body } = parseEventDetails(hookInput);
   const project = config.project_label;
   const sessionId = hookInput.session_id || 'unknown';
@@ -93,7 +93,7 @@ function formatSlackMrkdwn(hookInput, config, historyContext) {
     msg += `\n*Recent context:*\n\`\`\`${historyContext}\`\`\`\n`;
   }
 
-  if (config.wait_for_reply) {
+  if (willPollReply) {
     msg += `\n_Reply in thread to send instructions to Claude._`;
   }
 

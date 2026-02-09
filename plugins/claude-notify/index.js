@@ -92,7 +92,7 @@ async function runTest() {
       session_id: 'test-session-' + Date.now(),
     };
 
-    const message = formatMessage(testInput, config, '');
+    const message = formatMessage(testInput, config, '', config.wait_for_reply);
     await sendTelegram(config, message, topicId);
     console.log('Test notification sent successfully!');
 
@@ -132,7 +132,7 @@ async function runTest() {
       session_id: 'test-session-' + Date.now(),
     };
 
-    const message = formatMessage(testInput, config, '');
+    const message = formatMessage(testInput, config, '', config.wait_for_reply);
     const msgRef = await sendSlack(config, message);
     console.log('Test notification sent successfully!');
 
@@ -242,8 +242,11 @@ async function main() {
     historyContext = parseTranscript(input.transcript_path, config.history_lines);
   }
 
+  // Determine if we'll actually poll for a reply
+  const willPollReply = config.wait_for_reply && !stopHookActive;
+
   // Format message
-  const message = formatMessage(input, config, historyContext);
+  const message = formatMessage(input, config, historyContext, willPollReply);
 
   // Play local macOS sound
   const soundName = getSoundForEvent(config, eventName);
